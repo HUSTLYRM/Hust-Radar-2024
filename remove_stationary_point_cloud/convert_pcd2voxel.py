@@ -7,9 +7,43 @@ import numpy as np
 from collections import deque
 import matplotlib.pyplot as plt
 import copy
+import time
 
 global count_msg
 global first
+
+last_time = None
+
+# 可视化类
+class visualization:
+    def __init__(self):
+        self.fig  ,self.ax = plt.subplots()
+        self.line, = self.ax.plot([],[])
+        self.distances = []
+    def update_distance(self,new_distance):
+        # 添加新的距离到列表
+        self.distances.append(new_distance)
+
+        # 保留最新的100个数据点
+        if len(self.distances) > 100:
+            self.distances.pop(0)
+
+        # 更新线对象的数据
+        self.line.set_data(range(len(self.distances)), self.distances)
+
+        # 更新x轴的范围
+        self.ax.set_xlim(0, 100)  # x轴的长度始终为100
+
+        # 更新y轴的范围
+        self.ax.set_ylim(min(self.distances), max(self.distances))
+
+        # 重新绘制图形
+        plt.draw()
+        plt.pause(0.01)
+
+
+
+
 class depth:
     def __init__(self, fx, fy, cx, cy, EPS, MAX_DEPTH, CAM_WID, CAM_HGT):
         self.fx = fx
@@ -146,7 +180,12 @@ class PcdQueue(object):
     def cluster(self,pcd):
         # 使用DBSCAN进行聚类
         with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
-            labels = np.array(pcd.cluster_dbscan(eps=0.02, min_points=10, print_progress=True))
+            labels = np.array(pcd.cluster_dbscan(eps=0.15, min_points=100, print_progress=True))
+
+        # 如果没有找到任何簇，返回一个空的点云和中心点
+        if labels.max() == -1:
+            return np.array([]), np.array([0, 0, 0])
+
 
         # 计算每个簇的大小
         max_label = labels.max()
@@ -162,6 +201,44 @@ class PcdQueue(object):
         # 计算最大簇的中心点
         centroid = max_cluster_points.mean(axis=0)
 
+        return max_cluster_points, centroid
+
+    # 获取点云的距离中值的点,返回的是一个numpy数组
+    def get_median_point(self,pcd):
+        # 计算每个点到原点的距离
+        distance = np.sqrt(np.sum(np.asarray(pcd.points) ** 2, axis=1))
+
+        # 取中值点
+        median_distance = np.median(distance)
+        # print("测据:", median_distance)
+        # 取中值点的索引
+        median_index = np.where(distance == median_distance)
+        # 取中值点
+        median_point = np.asarray(pcd.points)[median_index]
+
+        return median_point
+
+    # 传入一个点（numpy数组），和一个点云，返回一个高亮了这个点的点云
+    def highlight_point(self,point,pcd):
+        # 将点转换为numpy数组
+        points = np.asarray(pcd.points)
+
+        # 添加新的点
+        points = np.vstack([points, point])
+
+        # 转换回Vector3dVector并赋值给show_pcd
+        pcd.points = o3d.utility.Vector3dVector(points)
+        # 创建一个颜色数组，对应于show_pcd中的每个点，将所有的点设置为绿色
+        colors = np.ones((len(pcd.points), 3)) * [0, 1, 0]  # 所有点默认为绿色
+
+        # 将最后一个颜色设置为红色
+        colors[-1] = [1, 0, 0]  # 最后一个点为红色
+
+        # 设置点云的颜色
+        pcd.colors = o3d.utility.Vector3dVector(colors)
+
+
+
 
 
 
@@ -169,6 +246,9 @@ class PcdQueue(object):
 def main():
     global count_msg
     global first
+    global show_pcd
+    global add_flag
+    global show_pcd_ori
     # set param
     fx = 1269.8676
     fy = 1276.0659
@@ -176,6 +256,7 @@ def main():
     cy = 248.7859
     count_msg = 0
     first = True
+    add_flag = False
 
     CAM_WID, CAM_HGT = 1280, 640  # 重投影到的深度图尺寸
     CAM_FX, CAM_FY = fx, fy  # fx/fy
@@ -183,15 +264,22 @@ def main():
 
     EPS = 1.0e-16
     MAX_DEPTH = 20.0  # 最大深度值
+    # 创建可视化对象
+    dis_vis = visualization()
     # 创建深度图对象
     d = depth(fx, fy, cx, cy, EPS, MAX_DEPTH, CAM_WID, CAM_HGT)
     # 创建可视化对象
     vis = o3d.visualization.Visualizer()
     vis.create_window()
+    # 创建原始点云可视化对象
+    vis_ori = o3d.visualization.Visualizer()
+    vis_ori.create_window()
     # 创建pcd
     select_pcd = o3d.geometry.PointCloud()
     # 创建一个专门用来展示的pointcloud
     show_pcd = o3d.geometry.PointCloud()
+    # 创建一个专门用来展示原始点云的pointcloud
+    show_pcd_ori = o3d.geometry.PointCloud()
     # 创建一个高亮的点云
     highlight_pcd = o3d.geometry.PointCloud()
 
@@ -205,8 +293,25 @@ def main():
     pcd_queue = PcdQueue(max_size=10)
 
     def callback(msg):
+        global last_time
         global count_msg
+        global show_pcd
+        global show_pcd_ori
         global first
+        global add_flag
+
+        # 计算帧率
+
+        current_time = time.time()  # 记录当前时间
+
+        if last_time is not None:
+            process_time = current_time - last_time  # 计算处理时间
+            fps = 1.0 / process_time  # 计算帧率
+
+            print("Processing time: {:.2f} sec.".format(process_time))
+            print("FPS: {:.2f}".format(fps))
+
+        last_time = current_time  # 更新上一次运行的时间
 
         # 将 ROS PointCloud2 消息转换为表示每个点的生成器对象
         gen = pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True)
@@ -246,53 +351,62 @@ def main():
         # 每次不是重新创建一个点云，而是更新点云的点，所以可以用update
         select_pcd_points = d.get_box_points(pcd_merge_backup)
         select_pcd.points = o3d.utility.Vector3dVector(select_pcd_points)
+        show_pcd_ori.points = o3d.utility.Vector3dVector(select_pcd_points)
         # print(len(select_pcd.points))
         # 对select_pcd进行统计离群值滤波
-        cl , ind = select_pcd.remove_radius_outlier(nb_points=20, radius=0.1)
+        cl , ind = select_pcd.remove_radius_outlier(nb_points=16, radius=0.1)
         # final_cloud = select_pcd.select_by_index(ind) # 选择去除离群值后的点云,如果想要保留离群值，可以用select_by_index(ind, invert=True)
+
+        print("before:",len(cl.points))
+        # 用dbscan聚类，返回最大簇的点云和中心点坐标
+        cl_pt, centroid = pcd_queue.cluster(cl)
+        print("after:",len(cl_pt))
+
+        # 把points:cl_pt传入cl中
+        cl.points = o3d.utility.Vector3dVector(cl_pt)
+
+        # 打印中心点坐标,不用科学技术法,计算中心点距离
+        # print(centroid)
+        distance = np.sqrt(np.sum(centroid ** 2))
+        print("距离:", distance)
+        # 更新距离图
+        # dis_vis.update_distance(distance)
+
+
+
+
+
+
         show_pcd.points = o3d.utility.Vector3dVector(cl.points)
 
 
-        # 计算cl点云的距离，取中值点，加入show_pcdc的points中并高亮展示
-        # 计算每个点到原点的距离
-        distance = np.sqrt(np.sum(np.asarray(cl.points)**2, axis=1))
+        # 计算cl点云的距离，取中值点，加入show_pcd的points中并高亮展示
+        # 调用方法计算
+        median_point = pcd_queue.get_median_point(cl)
+        # 调用方法高亮
+        pcd_queue.highlight_point(median_point,show_pcd)
 
-        # 取中值点
-        median_distance = np.median(distance)
-        print("测据:",median_distance)
-        # 取中值点的索引
-        median_index = np.where(distance == median_distance)
-        # 取中值点
-        median_point = np.asarray(cl.points)[median_index]
-        # 加入show_pcd的points中
-        # 将点转换为numpy数组
-        points = np.asarray(show_pcd.points)
-
-        # 添加新的点
-        points = np.vstack([points, median_point])
-
-        # 转换回Vector3dVector并赋值给show_pcd
-        show_pcd.points = o3d.utility.Vector3dVector(points)
-        # 创建一个颜色数组，对应于show_pcd中的每个点，将所有的点设置为绿色
-        colors = np.ones((len(show_pcd.points), 3)) * [0, 1, 0]  # 所有点默认为绿色
-
-        # 将最后一个颜色设置为红色
-        colors[-1] = [1, 0, 0]  # 最后一个点为红色
-
-        # 设置点云的颜色
-        show_pcd.colors = o3d.utility.Vector3dVector(colors)
+        print(len(show_pcd.points))
 
 
         # print(len(show_pcd.points))
         # voxel_all = pcd_queue.get_voxel()
         # 加个如果第一次点云判空如果是空的就跳过这一步，不把first变换
-        if first:
-            # 对show_pcd进行判空,如果不为空才添加
-            if len(show_pcd.points):
-                first = False
-                vis.add_geometry(show_pcd)
-        else:
-            vis.update_geometry(show_pcd) # select_pcd
+        if add_flag:
+            if first:
+                # 对show_pcd进行判空,如果不为空才添加
+                if len(show_pcd.points):
+                    first = False
+                    # print("add")
+
+                    vis.add_geometry(show_pcd)
+                    vis_ori.add_geometry(show_pcd_ori)
+            else:
+                # print("update")
+                print("pcd_ori:", len(show_pcd_ori.points))
+                print("pcd:",len(show_pcd.points))
+                vis.update_geometry(show_pcd) # select_pcd
+                vis_ori.update_geometry(show_pcd_ori)
 
 
 
@@ -304,6 +418,7 @@ def main():
         if count_msg == 10:
             # 假如你的图像变量名为 img
             d.set_box(img_z)
+            add_flag = True
 
         # 把检测框画在深度图上
         cv2.rectangle(img_z, (d.detect_box[0], d.detect_box[1]), (d.detect_box[2], d.detect_box[3]), (0, 0, 255), 2)
@@ -319,7 +434,9 @@ def main():
         # print(pcd_queue.point_num())
 
         vis.poll_events()
+        vis_ori.poll_events()
         vis.update_renderer() # 重新渲染
+        vis_ori.poll_events()
 
     rospy.init_node('open3d_visualize_node', anonymous=True)
     rospy.Subscriber('livox/lidar', PointCloud2, callback)

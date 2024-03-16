@@ -214,6 +214,7 @@ def main():
     global first
     global show_pcd
     global add_flag
+    global show_pcd_ori
     # set param
     fx = 1269.8676
     fy = 1276.0659
@@ -343,11 +344,14 @@ def main():
                 # 对show_pcd进行判空,如果不为空才添加
                 if len(show_pcd.points):
                     first = False
-                    print("add")
+                    # print("add")
+
                     vis.add_geometry(show_pcd)
                     vis_ori.add_geometry(show_pcd_ori)
             else:
-                print("update")
+                # print("update")
+                print("pcd_ori:", len(show_pcd_ori.points))
+                print("pcd:",len(show_pcd.points))
                 vis.update_geometry(show_pcd) # select_pcd
                 vis_ori.update_geometry(show_pcd_ori)
 
@@ -377,7 +381,9 @@ def main():
         # print(pcd_queue.point_num())
 
         vis.poll_events()
+        vis_ori.poll_events()
         vis.update_renderer() # 重新渲染
+        vis_ori.poll_events()
 
     rospy.init_node('open3d_visualize_node', anonymous=True)
     rospy.Subscriber('livox/lidar', PointCloud2, callback)
