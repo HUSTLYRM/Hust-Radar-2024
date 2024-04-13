@@ -187,6 +187,7 @@ converter = Converter()
 pcd = o3d.io.read_point_cloud('../pcd_data/data/calib1.pcd')
 # 将激光雷达坐标系下的点云转换到相机坐标系下
 converter.lidar_to_camera(pcd)
+#
 # 获得深度图
 uvz = converter.camera_to_image(pcd)
 imgz = converter.generate_depth_map(uvz)
