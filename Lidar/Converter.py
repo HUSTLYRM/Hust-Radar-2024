@@ -156,7 +156,9 @@ class Converter:
         return uvz
 
     # 将生成的uvz转换为深度图
-    def generate_depth_map(self, uvz): # 传入的uvz是一个n*3的矩阵，n是点云的数量，是np.array格式的
+    def generate_depth_map(self, pcd): # 传入的pcd,返回的是一个深度图
+
+        uvz = self.camera_to_image(pcd) # 转换为uvz
         # 提取u,v,z
         u = uvz[:, 0]
         v = uvz[:, 1]
@@ -186,23 +188,48 @@ class Converter:
 
 
     # 获取投影后落在深度图矩形框内的点云 , 并不是反向映射，而是直接提取落在矩形框内的点云
-    def get_points_in_box(self, pcd, box, max_depth):
+    def get_points_in_box(self, pcd, box): # 传入的为pcd格式点云，box是一个元组，包含了矩形框的左上角和右下角的坐标：(min_u, min_v, max_u, max_v)，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
         # box是一个元组，包含了矩形框的左上角和右下角的坐标：(min_u, min_v, max_u, max_v)
+        # 好像没有小孔成像的感觉，似乎并不是一个锥形
         min_u, min_v, max_u, max_v = box
-        # 提取点云坐标
+        print(box)
+        # 提取像素坐标系下坐标
         uvz = self.camera_to_image(pcd)
         # 提取u,v,z
         u = uvz[:, 0]
         v = uvz[:, 1]
         z = uvz[:, 2]
+        # print("z",z)
         # 创建一个mask，标记落在矩形框中的点云,因为bitwise_and每次只能操作两个数组，所以需要分开操作
         mask1 = np.bitwise_and(u >= min_u, u <= max_u)
         mask2 = np.bitwise_and(v >= min_v, v <= max_v)
         mask3 = np.bitwise_and(mask1, mask2)
         mask = np.bitwise_and(mask3, z <= self.max_depth) # 滤除超出最大深度的点云
-        # 获得落在矩形框中的点云
-        box_points = uvz[mask]
+        # 获得落在矩形框中的点云的点云的index,pcd.points才是要筛选的点云
+        box_points = np.asarray(pcd.points)[mask]
+
+
         return box_points
+
+    # 传入一个图片，手动选择一个矩形框，返回这个矩形框的坐标（min_u, min_v, max_u, max_v）
+    def select_box(self, img):
+        # 选择矩形框
+        box = cv2.selectROI('select_box', img, False, False)  # box的坐标是（x，y，w，h）
+        cv2.destroyWindow('select_box')
+
+        # 调整box的坐标，使其变为（min_u, min_v, max_u, max_v）
+        min_u, min_v, w, h = box
+        max_u = min_u + w
+        max_v = min_v + h
+        box = (min_u, min_v, max_u, max_v)
+
+        return box
+
+    # 深拷贝点云
+    def copy_pcd(self,pcd):
+        new_pcd = o3d.geometry.PointCloud()
+        new_pcd.points = o3d.utility.Vector3dVector(np.asarray(pcd.points))
+        return new_pcd
 
 converter = Converter()
 # 读取../pcd_data/points/1224_indoor1.pcd
@@ -210,12 +237,30 @@ pcd = o3d.io.read_point_cloud('./1224_scene3.pcd')
 converter.show_pcd_info(pcd) # 看初始的信息
 # 将激光雷达坐标系下的点云转换到相机坐标系下
 converter.lidar_to_camera(pcd)
+# 备份一份pcd,深拷贝,没有copy
+# pcd_backup = pcd
+pcd_backup = converter.copy_pcd(pcd)
+
 converter.show_pcd_info(pcd) # 看转换后的信息
 # 可视化点云
 o3d.visualization.draw_geometries([pcd])
+
 #
 # 获得深度图
-uvz = converter.camera_to_image(pcd)
-imgz = converter.generate_depth_map(uvz)
+imgz = converter.generate_depth_map(pcd)
+# 选择roi
+box = converter.select_box(imgz)
+# 打印roi框的坐标
+print(box)
+# 获取roi内的点云
+box_points = converter.get_points_in_box(pcd_backup, box)
+# 打印点云的数量
+print(len(box_points))
+# 可视化点云
+pcd_box = o3d.geometry.PointCloud()
+pcd_box.points = o3d.utility.Vector3dVector(box_points)
+# 打印筛选点的信息
+converter.show_pcd_info(pcd_box)
+o3d.visualization.draw_geometries([pcd_box])
 cv2.imshow('imgz',imgz)
 cv2.waitKey(0)
