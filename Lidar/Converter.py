@@ -117,21 +117,41 @@ class Converter:
         pc = pc[:, :3]
         self.update_pcd(pcd, pc)
 
+    # 展示点云的基本信息,x,y,z的范围
+    def show_pcd_info(self, pcd):
+        pc = self.get_points(pcd)
+        x = pc[:, 0]
+        y = pc[:, 1]
+        z = pc[:, 2]
+        print('x: ', x.min(), x.max())
+        print('y: ', y.min(), y.max())
+        print('z: ', z.min(), z.max())
+
+
 
 
     def camera_to_lidar(self, pcd): # 对pcd直接修改，不用返回
         # 相机坐标系下的点云转换到激光雷达坐标系下
         pc = self.get_points(pcd)
-        # 相机坐标系下的点云批量乘以外参矩阵的逆矩阵，得到激光雷达坐标系下的点云
+        # Add a column of ones to the points
+        pc = np.hstack((pc, np.ones((pc.shape[0], 1))))
         pc = np.dot(pc, self.extrinsic_matrix_inv.T)
-        # 修改open3d的pcd格式的点云的points属性
+        # 提取前三列
+        pc = pc[:, :3]
         self.update_pcd(pcd, pc)
 
 
     def camera_to_image(self, pcd): # 传入的是一个open3d的pcd格式的点云，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
         # 相机坐标系下的点云批量乘以内参矩阵，得到图像坐标系下的u,v和z,类似于深度图的生成
         pc = self.get_points(pcd)
-        uvz = np.dot(pc, self.intrinsic_matrix.T) # 得到的uvz是一个n*3的矩阵，n是点云的数量，是np.array格式的
+        xyz = np.dot(pc, self.intrinsic_matrix.T) # 得到的uvz是一个n*3的矩阵，n是点云的数量，是np.array格式的
+        # 之前深度图没正确生成是因为没有提取z出来，导致原来的uv错误过大了
+        # 要获得u,v,z，需要将xyz的第三列除以第三列
+        uvz = np.zeros(xyz.shape)
+        uvz[:, 0] = xyz[:, 0] / xyz[:, 2]
+        uvz[:, 1] = xyz[:, 1] / xyz[:, 2]
+        uvz[:, 2] = xyz[:, 2]
+
 
         return uvz
 
@@ -159,8 +179,10 @@ class Converter:
         img_z = np.min(img_z_shift, axis=0) # img_z 是一个height*width的矩阵
         # 转为可以显示的图像
         img_z = np.where(img_z > self.max_depth, self.max_depth, img_z)
-        img_z = cv2.normalize(img_z, None, 0, 2550, cv2.NORM_MINMAX, cv2.CV_8U)
-        return img_z
+        img_z = cv2.normalize(img_z, None, 0, 200, cv2.NORM_MINMAX, cv2.CV_8U)
+        # img_z = cv2.normalize(img_z, None, 0, 200, cv2.NORM_MINMAX, cv2.CV_8U) # 远的看不到，就把最大值调小
+        img_jet = cv2.applyColorMap(img_z, cv2.COLORMAP_JET)
+        return img_jet
 
 
     # 获取投影后落在深度图矩形框内的点云 , 并不是反向映射，而是直接提取落在矩形框内的点云
@@ -184,9 +206,13 @@ class Converter:
 
 converter = Converter()
 # 读取../pcd_data/points/1224_indoor1.pcd
-pcd = o3d.io.read_point_cloud('../pcd_data/data/calib1.pcd')
+pcd = o3d.io.read_point_cloud('./1224_scene3.pcd')
+converter.show_pcd_info(pcd) # 看初始的信息
 # 将激光雷达坐标系下的点云转换到相机坐标系下
 converter.lidar_to_camera(pcd)
+converter.show_pcd_info(pcd) # 看转换后的信息
+# 可视化点云
+o3d.visualization.draw_geometries([pcd])
 #
 # 获得深度图
 uvz = converter.camera_to_image(pcd)
