@@ -1,5 +1,5 @@
 # 将激光雷达坐标系下的点云转换到相机坐标系下
-
+# 关于点云处理，过程中pcd可以变换，只要vis的时候更改pcd的points属性就可以了
 '''
 理论上坐标系之间轴的关系：
 激光雷达的x是相机坐标系的z，激光雷达的y是相机坐标系的-x，激光雷达的z是相机坐标系的-y
@@ -83,6 +83,14 @@ class Converter:
         self.max_depth = data_loader['params']['max_depth']
         self.width = data_loader['params']['width']
         self.height = data_loader['params']['height']
+        # 获取聚类参数
+        self.eps = data_loader['cluster']['eps']
+        self.min_points = data_loader['cluster']['min_points']
+        self.print_cluster_progress = data_loader['cluster']['print_progress']
+        # 获取滤波参数
+        self.nb_neighbors = data_loader['filter']['nb_neighbors']
+        self.std_ratio = data_loader['filter']['std_ratio']
+        self.voxel_size = data_loader['filter']['voxel_size']
         # 相机坐标系到图像坐标系的内参矩阵，3*3的矩阵
         self.intrinsic_matrix = np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]])
         # 图像坐标系到相机坐标系的内参矩阵，3*3的矩阵
@@ -230,6 +238,55 @@ class Converter:
         new_pcd = o3d.geometry.PointCloud()
         new_pcd.points = o3d.utility.Vector3dVector(np.asarray(pcd.points))
         return new_pcd
+
+    # 对点云进行DBSCAN聚类
+    def cluster(self,pcd): # 传入的是一个open3d的pcd格式的点云，返回的是一个numpy格式的点云和一个中心点，如果没有找到任何簇，返回一个空的np和中心点
+        # TODO:根据点云的距离来判断点云的稀疏程度，然后根据稀疏程度来调整eps和min_points
+        # 使用DBSCAN进行聚类
+        with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+            labels = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points, print_progress=self.print_cluster_progress))
+
+        # 如果没有找到任何簇，返回一个空的点云和中心点
+        if labels.max() == -1:
+            return np.array([]), np.array([0, 0, 0])
+
+        # 计算每个簇的大小
+        max_label = labels.max()
+        print(f"point cloud has {max_label + 1} clusters")
+        cluster_sizes = [len(np.where(labels == i)[0]) for i in range(max_label + 1)]
+
+        # 找到最大簇的索引
+        max_cluster_idx = np.argmax(cluster_sizes)
+
+        # 找到最大簇的所有点
+        max_cluster_points = np.asarray(pcd.points)[np.where(labels == max_cluster_idx)]
+
+        # 计算最大簇的中心点
+        centroid = max_cluster_points.mean(axis=0)
+
+        return max_cluster_points, centroid
+
+    # 对传入点云进行滤波去除离群点和噪声点
+    def remove_outliers(self, pcd):
+        # 使用StatisticalOutlierRemoval滤波器去除离群点和噪声点
+        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=self.nb_neighbors, std_ratio=self.std_ratio)
+        return pcd
+
+    # 对pcd做体素降采样
+    def voxel_down_sample(self, pcd):
+        # 使用VoxelGrid滤波器进行体素降采样
+        pcd = pcd.voxel_down_sample(voxel_size=self.voxel_size)
+        return pcd
+
+    # 对pcd进行滤波
+    def filter(self, pcd):
+        # 体素降采样
+        pcd = self.voxel_down_sample(pcd)
+        # 去除离群点和噪声点
+        pcd = self.remove_outliers(pcd)
+
+        return pcd
+
 
 converter = Converter()
 # 读取../pcd_data/points/1224_indoor1.pcd

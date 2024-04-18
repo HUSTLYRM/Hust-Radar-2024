@@ -25,3 +25,13 @@ calib:
     cols: 1
     dt: d
     data: [-0.100813, 0.58183, 0.0031347, 0.00040115, 0.0]
+
+cluster:
+  eps: 0.40 # eps是DBSCAN算法的一个参数，它是一个浮点数，用来控制邻域的大小
+  min_points: 10 # min_samples是DBSCAN算法的一个参数，它是一个整数，用来控制核心点的最小个数
+  print_progress: True # 是否打印进度
+
+filter:
+  nb_neighbors: 20
+  std_ratio: 2.0
+  voxel_size: 0.02

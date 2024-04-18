@@ -10,6 +10,22 @@ import copy
 
 global count_msg
 global first
+
+# 创建目标框对象
+class detect_box:
+    def __init__(self, min_u, min_v, max_u, max_v, conf = 100.0, class_id = 0, coordinate = np.array([0,0,0])):
+        self.min_u = min_u
+        self.min_v = min_v
+        self.max_u = max_u
+        self.max_v = max_v
+        self.conf = conf
+        self.class_id = class_id
+        # 此目标框对应的三维点坐标
+        self.coord = coordinate
+
+    # 写入目标框的坐标
+    def set_coord(self, coord):
+        self.coord = coord
 class depth:
     def __init__(self, fx, fy, cx, cy, EPS, MAX_DEPTH, CAM_WID, CAM_HGT):
         self.fx = fx
@@ -26,6 +42,9 @@ class depth:
         width_v = 100
         # 目标框，(min_u, min_v, max_u, max_v)
         self.detect_box = (center_u - width_u, center_v - width_v, center_u + width_u, center_v + width_v)
+        # 维护一个目标框队列
+        self.detect_box_queue = []
+
 
     def pcd_to_depth(self, pcd):
         pc = np.asarray(pcd.points)
@@ -52,7 +71,7 @@ class depth:
                                 np.roll(img_z, -1, axis=1)])
         img_z = np.min(img_z_shift, axis=0)
         img_z = np.where(img_z > self.MAX_DEPTH, self.MAX_DEPTH, img_z)
-        img_z = cv2.normalize(img_z, None, 0, 200, cv2.NORM_MINMAX, cv2.CV_8U) # 远的看不到，就把最大值调小
+        img_z = cv2.normalize(img_z, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
         img_jet = cv2.applyColorMap(img_z, cv2.COLORMAP_JET)
         return img_jet
 
@@ -146,7 +165,7 @@ class PcdQueue(object):
     def cluster(self,pcd):
         # 使用DBSCAN进行聚类
         with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
-            labels = np.array(pcd.cluster_dbscan(eps=0.40, min_points=10, print_progress=True))
+            labels = np.array(pcd.cluster_dbscan(eps=0.15, min_points=10, print_progress=True))
 
         # 如果没有找到任何簇，返回一个空的点云和中心点
         if labels.max() == -1:
@@ -216,10 +235,10 @@ def main():
     global add_flag
     global show_pcd_ori
     # set param
-    fx = 1246.79200717189
-    fy = 1243.23027688354
-    cx = 637.846976999981
-    cy = 506.588375264748
+    fx = 1269.8676
+    fy = 1276.0659
+    cx = 646.6841
+    cy = 248.7859
     count_msg = 0
     first = True
     add_flag = False
@@ -229,7 +248,7 @@ def main():
     CAM_CX, CAM_CY = cx, cy  # cx/cy
 
     EPS = 1.0e-16
-    MAX_DEPTH = 10.0  # 最大深度值
+    MAX_DEPTH = 20.0  # 最大深度值
     # 创建深度图对象
     d = depth(fx, fy, cx, cy, EPS, MAX_DEPTH, CAM_WID, CAM_HGT)
     # 创建可视化对象
@@ -317,11 +336,7 @@ def main():
 
         # 打印中心点坐标,不用科学技术法,计算中心点距离
         # print(centroid)
-        x = centroid[0]
-        y = centroid[1]
-        z = centroid[2]
-        dis = np.sqrt(np.sum(centroid ** 2))
-        print("距离:",dis)
+        print("距离:",np.sqrt(np.sum(centroid ** 2)))
 
 
 
@@ -352,16 +367,12 @@ def main():
 
                     vis.add_geometry(show_pcd)
                     vis_ori.add_geometry(show_pcd_ori)
-                    # debug
-                    vis_ori.add_geometry(show_pcd)
             else:
                 # print("update")
                 print("pcd_ori:", len(show_pcd_ori.points))
                 print("pcd:",len(show_pcd.points))
                 vis.update_geometry(show_pcd) # select_pcd
                 vis_ori.update_geometry(show_pcd_ori)
-                # debug
-                vis_ori.update_geometry(show_pcd)
 
 
 
@@ -370,23 +381,13 @@ def main():
 
         # 增加计数，并判断是否够十次，如果够则手绘一次roi
         count_msg += 1
-        if count_msg == 20:
+        if count_msg == 10:
             # 假如你的图像变量名为 img
             d.set_box(img_z)
             add_flag = True
 
         # 把检测框画在深度图上
         cv2.rectangle(img_z, (d.detect_box[0], d.detect_box[1]), (d.detect_box[2], d.detect_box[3]), (0, 0, 255), 2)
-        # 把距离中值文本放在检测框上
-        cv2.putText(img_z, f"distance:{dis:.2f}", (d.detect_box[0], d.detect_box[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        # 把坐标文本放在检测框左下角,形式类似(x,y,z)
-        cv2.putText(img_z, f"({x:.2f},{y:.2f},{z:.2f})", (d.detect_box[0], d.detect_box[3]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-        # 把检测框中心点像素坐标计算出来并print
-        # center_u = (d.detect_box[0] + d.detect_box[2]) / 2
-        # center_v = (d.detect_box[1] + d.detect_box[3]) / 2
-        # print("center_u:",center_u,"center_v:",center_v)
-
 
         cv2.imshow('depth',img_z)
         cv2.waitKey(1)
