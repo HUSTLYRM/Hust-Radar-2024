@@ -19,7 +19,8 @@ class Detector:
         self.model_car2 = YOLO(self.cfg['path']['stage_two_path'])
         print('Done\n')
         # 设置参数
-        self.tracker_path = self.cfg['params']['tracker_path']
+        self.tracker_path = self.cfg['path']['tracker_path']
+        print(self.tracker_path)
         self.stage_one_conf = self.cfg['params']['stage_one_conf']
         self.stage_two_conf = self.cfg['params']['stage_two_conf']
         self.life_time = self.cfg['params']['life_time'] # 生命周期
@@ -57,7 +58,7 @@ class Detector:
                     maxConf = data[i][4]
                     label = data[i][5]
 
-        return int(label)
+        return int(label) # 还能返回maxConf一起，然后就能对二阶段的分类进行处理了
 
     # 一阶段追踪推理
     def track_infer(self, frame):
@@ -81,8 +82,25 @@ class Detector:
         track_ids = results[0].boxes.id.int().cpu().tolist()
         return confidences, boxes, track_ids
 
+    # 画出result
+    def draw_result(self, frame, box, result, conf):
+        if result != "NULL":
+            # 画上分类结果
+            x, y, w, h = box
+            cv2.putText(frame, result, (int(box[0] - 5), int(box[1] - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+                        (0, 255, 122), 2)
+            # 画上置信度 debug
+            cv2.putText(frame, str(round(conf, 2)), (int(box[0] - 5), int(box[1] - 25)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
+            cv2.rectangle(frame, (int(x - w / 2), int(y - h / 2)), (int(x + w / 2), int(y + h / 2)),
+                          (0, 255, 122), 2)
+        return frame
+    
+
     # 总的推理
     def infer(self, frame): # 输入原图，返回推理结果
+
+        # frame判空
         if frame is None:
             print("No frame!")
             return None
@@ -90,12 +108,13 @@ class Detector:
         # 获取推理结果
         results = self.track_infer(frame)
 
-        # 判空
+        # 一阶段results判空
         if self.is_results_empty(results):
-            self.show_img(frame)
+            print("No results!")
             return None
 
         confidences, boxes, track_ids = self.parse_results(results) # 可以不要
+        tracker_results = [] # 最终返回存储追踪器的结果，有box, 分类id, conf
 
         for box, track_id, conf in zip(boxes, track_ids, confidences):
             if conf < self.stage_one_conf:
@@ -116,25 +135,18 @@ class Detector:
                 if pd != id_label[int(track_id)][i + 1]:
                     same = False
                     break
-            if same == True:
+            if same:
                 result = "NULL"
             else:
                 result = str(labels[result])
 
             # result是预测的类别的字符形式，如果不是NULL, 画上分类结果
-            if result != "NULL":
-                # 画上分类结果
-                x, y, w, h = box
-                cv2.putText(frame, result, (int(box[0] - 5), int(box[1] - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-                            (0, 255, 122), 2)
-                # 画上置信度 debug
-                cv2.putText(frame, str(round(conf, 2)), (int(box[0] - 5), int(box[1] - 25)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
-                cv2.rectangle(frame, (int(x - w / 2), int(y - h / 2)), (int(x + w / 2), int(y + h / 2)),
-                              (0, 255, 122), 2)
+            # self.draw_result(frame, box, result, conf)
             # 返回结果,现在是画上了结果的frame
-            # TODO:把识别的box，conf和最终的类别组合后返回
-            return frame
+            # 把识别的box，conf和最终的类别组合后返回
+            tracker_results.append((box, result, conf)) # 返回的是一个列表，每个元素是一个元组，包含了box, 分类结果和置信度
+            
+        return tracker_results
 
 
 
@@ -184,97 +196,45 @@ main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
 bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
 detector_config_path = "../configs/detector_config.yaml"
 def main():
-    print("\nLoading right camera")
+    print("Loading right camera")
     # capture初始化
     capture = Capture(binocular_camera_cfg_path, 'new_cam')
     detector = Detector(detector_config_path)
     print("Done")
 
-
-    loop_times = 0
+    # 计算fps
+    last_time = time.time()-1
 
     while True:
-        image_right = capture.get_frame()
+
+
+        # 获取图像`
+        frame = capture.get_frame()
+
+        # 计算fps
+        now = time.time()
+        fps = 1 / (now - last_time)
+        # print("fps: ", fps)
+        last_time = now
 
         # 如果按下q，那么停止循环
         if cv2.waitKey(1) == ord('q'):
             break
 
-        if image_right is not None:
+        results = detector.infer(frame)
+        if results is not None:
+            # 提取results并画上结果
+            for box, result, conf in results:
+               frame = detector.draw_result(frame, box, result, conf)
 
-            # 获取推理结果
-            results = detector.track_infer(image_right)
-            # results = model_car.track(image_right, persist=True,tracker='../configs/bytetrack.yaml')
+        # 绘制fps
+        cv2.putText(frame, "fps: " + str(fps), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
+        capture.show_img(frame)
 
-            # 判空
-            if detector.is_results_empty(results):
-                capture.show_img(image_right)
-                continue
-            # if results is None:
-            #     # 就算没有检测到，也要显示右摄像头的画面
-            #     print("No results!")
-            #     capture.show_img(image_right)
-            #     #cv2.waitKey(1)
-            #     continue
-            #
-            # if results[0].boxes.id is None:
-            #     # 就算没有检测到，也要显示右摄像头的画面
-            #     print("No detect!")
-            #     capture.show_img(image_right)
-            #     #cv2.waitKey(1)
-            #     continue
-
-            # confidences = results[0].boxes.conf.cpu().numpy()
-            # boxes = results[0].boxes.xywh.cpu().numpy()
-            # track_ids = results[0].boxes.id.int().cpu().tolist()
-            # 解析results
-            confidences, boxes, track_ids = detector.parse_results(results)
-
-            for box, track_id, conf in zip(boxes, track_ids, confidences):
-                if conf < detector.stage_one_conf:
-                    capture.show_img(image_right)
-                    #cv2.waitKey(1)
-                    continue
-                new_id = classify(image_right, box)
-
-                if new_id != -1:
-                    id_label[int(track_id)][int(float(new_id))] += 1
-                    if loop_times % 29 == 0:
-                        for i in range(12):
-                            id_label[int(track_id)][i] = math.floor(id_label[int(track_id)][i] / 10)
-
-                result = id_label[int(track_id)].index(max(id_label[int(track_id)]))
-                pd = id_label[int(track_id)][0]
-                same = True
-                for i in range(11):
-                    if pd != id_label[int(track_id)][i + 1]:
-                        same = False
-                        break
-                if same == True:
-                    result = "NULL"
-                else:
-                    result = str(labels[result])
-
-
-
-                # 如果result不是null, 画上分类结果
-                if result != "NULL":
-                    # 画上分类结果
-                    x, y, w, h = box
-                    cv2.putText(image_right, result, (int(box[0] - 5), int(box[1] - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-                                (0, 255, 122), 2)
-                    # 画上置信度 debug
-                    cv2.putText(image_right, str(round(conf, 2)), (int(box[0] - 5), int(box[1] - 25)),cv2.FONT_HERSHEY_SIMPLEX,0.75, (0, 255, 122), 2)
-                    cv2.rectangle(image_right, (int(x - w / 2), int(y - h / 2)), (int(x + w / 2), int(y + h / 2)),
-                                  (0, 255, 122), 2)
-
-            print("show!")
-            capture.show_img(image_right)
-            #cv2.waitKey(1)
 
 
         # 确定我们有一幅生效的图片
-        loop_times += 1
+        detector.loop_times += 1
 
     # 关闭摄像头
     capture.camera_close()

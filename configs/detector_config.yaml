@@ -1,7 +1,7 @@
 path:
   stage_one_path: "../weights/train/stage_one/weights/best.pt"
   stage_two_path: "../weights/train/stage_two/weights/best.pt"
-  tracker_path: '../configs/bytetrack.yaml'
+  tracker_path: "../configs/bytetrack.yaml"
 
 params:
   labels: ["B1", "B2", "B3", "B4", "B5", "B7", "R1", "R2", "R3", "R4", "R5", "R7"]
