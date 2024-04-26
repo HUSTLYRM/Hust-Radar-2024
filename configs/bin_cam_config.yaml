@@ -3,6 +3,12 @@ id:
   right: '00C33080959' # 原来的右相机编号'00C33080959' '2BDF34963204'
   new_cam: '2BDF34963204' # 新的右相机编号
 
+mode:
+  is_camera: True # 使用相机还是视频
+
+path:
+  video_path:
+
 base_line: "200"
 
 set:
@@ -14,9 +20,9 @@ param:
   Width: 4024 # 1280
   Height: 3036 # 640
   OffsetY: 0 # 384
-  ExposureTime: 8000.0 # 64000. .100000.
+  ExposureTime: 10000.0 # 64000. .100000. 33000室内 # 增益呢23
   GammaEnable: True # True False4
-  Gamma: 0.4 # 0 0.7
+  Gamma: 0.7 # 0 0.7
   BalanceWhiteAuto: 'Off'
   BalanceRatioR: 1249
   BalanceRatioG: 1024
