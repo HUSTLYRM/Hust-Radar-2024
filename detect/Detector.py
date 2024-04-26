@@ -3,7 +3,7 @@ import torch
 import datetime
 from ruamel.yaml import YAML
 from ultralytics import YOLO
-from Capture import Capture
+# from Capture import Capture
 import math
 import time
 
@@ -87,13 +87,13 @@ class Detector:
         if result != "NULL":
             # 画上分类结果
             x, y, w, h = box
-            cv2.putText(frame, result, (int(box[0] - 5), int(box[1] - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+            cv2.putText(frame, str(result), (int(box[0] - 5), int(box[1] - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
                         (0, 255, 122), 2)
             # 画上置信度 debug
             cv2.putText(frame, str(round(conf, 2)), (int(box[0] - 5), int(box[1] - 25)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
             cv2.rectangle(frame, (int(x - w / 2), int(y - h / 2)), (int(x + w / 2), int(y + h / 2)),
-                          (0, 255, 122), 2)
+                          (0, 255, 122), 5)
         return frame
     
 
@@ -123,11 +123,12 @@ class Detector:
 
             if new_id != -1:
                 id_label[int(track_id)][int(float(new_id))] += 1 # 对追踪器的类别计数器进行更新
-                if self.loop_times % self.life_time == 0: # 当进行了30次处理（30帧每秒的话，则是1秒）后，对计数器进行更新，每个类别的计数器除以10
+                if self.loop_times % self.life_time == 1: # 当进行了30次处理（30帧每秒的话，则是1秒）后，对计数器进行更新，每个类别的计数器除以10 # 注意，如果要单帧检测，这里不能为0，否则会出现第一帧就全都除10的情况
                     for i in range(self.class_num): # 对所有类别进行衰减,防止过大无法修正 TODO:检查如果某一帧没有track_id号追踪器，后面是否不会有这一号，如果有，会不会出现刚好这一帧没有导致的不衰减问题
                         id_label[int(track_id)][i] = math.floor(id_label[int(track_id)][i] / 10)
 
             result = id_label[int(track_id)].index(max(id_label[int(track_id)])) # 找到计数器最大的类别,即追踪器的分类结果
+            # print(result)
             pd = id_label[int(track_id)][0] # 获取计数器的第一个值
             # 判断是否所有类别的计数器都一样，如果一样，说明没有识别出来，返回NULL
             same = True
