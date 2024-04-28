@@ -280,18 +280,18 @@ class Capture:
             sys.exit()
 
 
-# 检测模型
-print('Loading Car Model')
-model_car = YOLO("../weights/train/stage_one/weights/best.pt")
-model_car2 = YOLO("../weights/train/stage_two/weights/best.pt")
-print('Done\n')
-
-id_label = {}
-for i in range(1000):
-    id_label[i] = [0] * 12
-
-labels = ["B1", "B2", "B3", "B4", "B5", "B7", "R1", "R2", "R3", "R4", "R5", "R7"]
-
+# # 检测模型
+# print('Loading Car Model')
+# model_car = YOLO("../weights/train/stage_one/weights/best.pt")
+# model_car2 = YOLO("../weights/train/stage_two/weights/best.pt")
+# print('Done\n')
+#
+# id_label = {}
+# for i in range(1000):
+#     id_label[i] = [0] * 12
+#
+# labels = ["B1", "B2", "B3", "B4", "B5", "B7", "R1", "R2", "R3", "R4", "R5", "R7"]
+#
 
 # Classify function
 def classify(frame, box):

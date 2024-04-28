@@ -15,7 +15,10 @@ class Detector:
 
         # 检测模型
         print('Loading Car Model')
+        # 打印绝对路径
+        print(self.cfg['path']['stage_one_path'])
         self.model_car = YOLO(self.cfg['path']['stage_one_path'])
+
         self.model_car2 = YOLO(self.cfg['path']['stage_two_path'])
         print('Done\n')
         # 设置参数
@@ -24,13 +27,14 @@ class Detector:
         self.stage_one_conf = self.cfg['params']['stage_one_conf']
         self.stage_two_conf = self.cfg['params']['stage_two_conf']
         self.life_time = self.cfg['params']['life_time'] # 生命周期
+        self.id_candidate = [0] * 1000
 
         self.labels = self.cfg['params']['labels'] # 类别标签列表
         # 由labels长度初始化class_num
         self.class_num = len(self.labels) # 类别数量
-        self.self.Track_value = {} # 这是tracker的track_id和类别的字典，主键是追踪器编号，值是一个列表，记录每个类别的识别次数。每个追踪器有所有类别的识别次数
+        self.Track_value = {} # 这是tracker的track_id和类别的字典，主键是追踪器编号，值是一个列表，记录每个类别的识别次数。每个追踪器有所有类别的识别次数
         for i in range(1000):
-            self.self.Track_value[i] = [0] * self.class_num
+            self.Track_value[i] = [0] * self.class_num
         self.id_candiate = [0] * 1000
         # 设置计数器
         self.loop_times = 0
@@ -47,7 +51,7 @@ class Detector:
 
         roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
 
-        results = model_car2.predict(roi, conf=0.5, iou=0.7)
+        results = self.model_car2.predict(roi, conf=0.5, iou=0.7)
         maxConf = -1
         label = -1
         if len(results) == 0:  # no detect
@@ -133,7 +137,7 @@ class Detector:
                     self.Track_value[int(track_id)][i] = math.floor(self.Track_value[int(track_id)][i] / 15)
 
             x,y,w,h = box
-            classify_label,conf = classify(frame,box)
+            classify_label,conf = self.classify_infer(frame,box)
 
             # 二阶段识别次数和置信度的加权
             if classify_label != -1:
@@ -150,11 +154,11 @@ class Detector:
             '''
             if exist_armor[label] != -1:
                 old_id = exist_armor[label]
-                if Track_value[int(track_id)][label] < Track_value[int(old_id)][label]:
-                    Track_value[(int(track_id))][label] = 0
+                if self.Track_value[int(track_id)][label] < self.Track_value[int(old_id)][label]:
+                    self.Track_value[(int(track_id))][label] = 0
                     label = "NULL"
                 else:
-                    Track_value[(int(old_id))][label] = 0
+                    self.Track_value[(int(old_id))][label] = 0
                     old_id_index = self.id_candidate[old_id]
                     draw_candidate[old_id_index][5] = "NULL"
                     exist_armor[label] = track_id
@@ -171,7 +175,7 @@ class Detector:
                     break
 
             if same == False and label != "NULL": # label是分类信息
-                label = str(labels[label])
+                label = str(self.labels[label])
             else:
                 label = "NULL" 
 
@@ -180,25 +184,24 @@ class Detector:
             # self.draw_result(frame, box, result, conf)
             # 返回结果,现在是画上了结果的frame
             # 把识别的box，conf和最终的类别组合后返回
-            tracker_results.append((box, label, conf)) # 返回的是一个列表，每个元素是一个元组，包含了box, 分类结果和置信度
-            
-        return tracker_results
-
+            # tracker_results.append((box, label, conf)) # 返回的是一个列表，每个元素是一个元组，包含了box, 分类结果和置信度
 
             x_left = int(x - w / 2)
             y_left = int(y - h / 2)
             x_right = int(x + w / 2)
             y_right = int(y + h / 2)
-            draw_candidate.append([track_id,x_left,y_left,x_right,y_right,label])
+            draw_candidate.append([track_id, x_left, y_left, x_right, y_right, label])
             self.id_candidate[track_id] = index
             index = index + 1
 
         for box in draw_candidate:
-            track_id,x_left,y_left,x_right,y_right,label = box
-            cv2.rectangle(frame,(x_left,y_left),(x_right,y_right),(255,128,0),3,8)
-            cv2.putText(frame,str(track_id),(int(x_left -5) ,int(y_left - 5)) ,cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
-            cv2.putText(frame,label,(int(x_left + w - 5),int(y_left - 5)),cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
-        
+            track_id, x_left, y_left, x_right, y_right, label = box
+            cv2.rectangle(frame, (x_left, y_left), (x_right, y_right), (255, 128, 0), 3, 8)
+            cv2.putText(frame, str(track_id), (int(x_left - 5), int(y_left - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+                        (0, 255, 122), 2)
+            cv2.putText(frame, label, (int(x_right + 5), int(y_left - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+                        (0, 255, 122), 2)
+
         self.loop_times = self.loop_times + 1
         return frame
 
@@ -208,94 +211,94 @@ class Detector:
 
 
 # 检测模型
-print('Loading Car Model')
-model_car = YOLO("../weights/train/stage_one/weights/best.pt")
-model_car2 = YOLO("../weights/train/stage_two/weights/best.pt")
-print('Done\n')
-
-id_label = {}
-for i in range(1000):
-    id_label[i] = [0] * 12
-
-labels = ["B1", "B2", "B3", "B4", "B5", "B7", "R1", "R2", "R3", "R4", "R5", "R7"]
-
+# print('Loading Car Model')
+# model_car = YOLO("../weights/train/stage_one/weights/best.pt")
+# model_car2 = YOLO("../weights/train/stage_two/weights/best.pt")
+# print('Done\n')
+#
+# id_label = {}
+# for i in range(1000):
+#     id_label[i] = [0] * 12
+#
+# labels = ["B1", "B2", "B3", "B4", "B5", "B7", "R1", "R2", "R3", "R4", "R5", "R7"]
+#
 
 # Classify function
-def classify(frame, box):
-    x, y, w, h = box
-    x_left = x - w / 2
-    y_left = y - h / 2
-
-    roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
-
-    results = model_car2.predict(roi, conf=0.5, iou=0.7)
-    maxConf = -1
-    label = -1
-    if len(results) == 0:  # no detect
-        return -1
-    for result in results:
-        data = result.boxes.data
-        for i in range(len(data)):
-            if data[i][4] > maxConf:
-                maxConf = data[i][4]
-                label = data[i][5]
-
-    return int(label)
-
-# 加载配置文件
-main_cfg_path = "../configs/main_config.yaml"
-binocular_camera_cfg_path = "../configs/bin_cam_config.yaml"
-main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
-bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
-detector_config_path = "../configs/detector_config.yaml"
-def main():
-    print("Loading right camera")
-    # capture初始化
-    capture = Capture(binocular_camera_cfg_path, 'new_cam')
-    detector = Detector(detector_config_path)
-    print("Done")
-
-    # 计算fps
-    last_time = time.time()-1
-
-    while True:
-
-
-        # 获取图像`
-        frame = capture.get_frame()
-
-        # 计算fps
-        now = time.time()
-        fps = 1 / (now - last_time)
-        # print("fps: ", fps)
-        last_time = now
-
-        # 如果按下q，那么停止循环
-        if cv2.waitKey(1) == ord('q'):
-            break
-
-        results = detector.infer(frame)
-        if results is not None:
-            # 提取results并画上结果
-            for box, result, conf in results:
-               frame = detector.draw_result(frame, box, result, conf)
-
-        # 绘制fps
-        cv2.putText(frame, "fps: " + str(fps), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
-        capture.show_img(frame)
-
-
-
-        # 确定我们有一幅生效的图片
-        detector.loop_times += 1
-
-    # 关闭摄像头
-    capture.camera_close()
-
-    # 关闭所有 OpenCV 窗口
-    cv2.destroyAllWindows()
-
-
-if __name__ == '__main__':
-    main()
+# def classify(frame, box):
+#     x, y, w, h = box
+#     x_left = x - w / 2
+#     y_left = y - h / 2
+#
+#     roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
+#
+#     results = model_car2.predict(roi, conf=0.5, iou=0.7)
+#     maxConf = -1
+#     label = -1
+#     if len(results) == 0:  # no detect
+#         return -1
+#     for result in results:
+#         data = result.boxes.data
+#         for i in range(len(data)):
+#             if data[i][4] > maxConf:
+#                 maxConf = data[i][4]
+#                 label = data[i][5]
+#
+#     return int(label)
+#
+# # 加载配置文件
+# main_cfg_path = "../configs/main_config.yaml"
+# binocular_camera_cfg_path = "../configs/bin_cam_config.yaml"
+# main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
+# bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
+# detector_config_path = "../configs/detector_config.yaml"
+# def main():
+#     print("Loading right camera")
+#     # capture初始化
+#     capture = Capture(binocular_camera_cfg_path, 'new_cam')
+#     detector = Detector(detector_config_path)
+#     print("Done")
+#
+#     # 计算fps
+#     last_time = time.time()-1
+#
+#     while True:
+#
+#
+#         # 获取图像`
+#         frame = capture.get_frame()
+#
+#         # 计算fps
+#         now = time.time()
+#         fps = 1 / (now - last_time)
+#         # print("fps: ", fps)
+#         last_time = now
+#
+#         # 如果按下q，那么停止循环
+#         if cv2.waitKey(1) == ord('q'):
+#             break
+#
+#         result_img = detector.infer(frame)
+#         # if results is not None:
+#         #     # 提取results并画上结果
+#         #     for box, result, conf in results:
+#         #        frame = detector.draw_result(frame, box, result, conf)
+#
+#         # 绘制fps
+#         cv2.putText(frame, "fps: " + str(fps), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
+#         capture.show_img(result_img)
+#
+#
+#
+#         # 确定我们有一幅生效的图片
+#         detector.loop_times += 1
+#
+#     # 关闭摄像头
+#     capture.camera_close()
+#
+#     # 关闭所有 OpenCV 窗口
+#     cv2.destroyAllWindows()
+#
+#
+# if __name__ == '__main__':
+#     main()
 
