@@ -197,9 +197,9 @@ class Detector:
         for box in draw_candidate:
             track_id, x_left, y_left, x_right, y_right, label = box
             cv2.rectangle(frame, (x_left, y_left), (x_right, y_right), (255, 128, 0), 3, 8)
-            cv2.putText(frame, str(track_id), (int(x_left - 5), int(y_left - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+            cv2.putText(frame, label, (int(x_left - 10), int(y_left - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
                         (0, 255, 122), 2)
-            cv2.putText(frame, label, (int(x_right + 5), int(y_left - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+            cv2.putText(frame, str(track_id), (int(x_right + 5), int(y_left - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
                         (0, 255, 122), 2)
 
         self.loop_times = self.loop_times + 1
