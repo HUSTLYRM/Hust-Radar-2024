@@ -287,6 +287,9 @@ class Converter:
 
         return pcd
 
+    # 传入一个点云，返回一个点云的中心点（x,y,z）
+
+
 
 converter = Converter()
 # 读取../pcd_data/points/1224_indoor1.pcd

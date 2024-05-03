@@ -24,39 +24,53 @@ class Pcd:
     #
 class PcdQueue(object):
     def __init__(self, max_size,voxel_size = 0.05):
-        self.max_size = max_size
-        self.queue = deque(maxlen=max_size)
+        self.max_size = max_size # 传入最大次数
+        self.queue = deque(maxlen=max_size) # 存放的是pc类型
         # 创建一个空的voxel
         self.voxel = o3d.geometry.VoxelGrid()
         self.voxel_size = voxel_size
         self.pcd_all = o3d.geometry.PointCloud()
+        self.pc_all = [] # 用于存储所有点云的numpy数组
+        # 内部属性
+        self.record_times = 0 # 已存点云的次数
+        self.point_num = 0 # 已存点的数量
 
-    # 目前是每次添加都会把所有点云转为voxel，然后更新voxel
-    def add(self, pcd):
-        self.queue.append(pcd)
-        self.pcd_all = self.get_all_pcd()
-        self.update_voxel(self.voxel_size)
+    # 目前是每次添加都会把所有点云转为voxel，然后更新voxel,TODO：改为存pc类型，不是pcd
+    def add(self, pc): # 传入的是pc
+        self.queue.append(pc) # 传入的是点云，一份点云占deque的一个位置
+        if self.record_times < self.max_size:
+            self.record_times += 1
+
+        self.update_pc_all()
+
+        self.point_num = self.cal_point_num()
 
     def get_all(self):
         return list(self.queue)
 
+    # 获取所有的pc
+    def update_pc_all(self):
+        # 清空pc_all
+        self.pc_all = []
+        for pc in self.queue:
+            self.pc_all.append(np.asarray(pc))
+
+
+
     # 获得队列中点的数量，而非队列的大小
-    def point_num(self):
-        num = 0
-        for pcd in self.queue:
-            num += len(pcd.points)
-        return num
+    def cal_point_num(self):
+        return len(self.pc_all)
 
     # 获得队列中的所有点云，以o3d的geometry的PointCloud的形式
-    def get_all_pcd(self):
-        pcd_all = o3d.geometry.PointCloud()
-        for pcd in self.queue:
-            pcd_all += pcd
-        return pcd_all
+    # def get_all_pcd(self):
+    #     pcd_all = o3d.geometry.PointCloud()
+    #     for pcd in self.queue:
+    #         pcd_all += pcd
+    #     return pcd_all
 
     # 将队列中的点云转为voxel格式
-    def update_voxel(self,voxel_size = 0.05):
-        self.voxel = o3d.geometry.VoxelGrid.create_from_point_cloud(self.pcd_all, voxel_size=voxel_size)
+    # def update_voxel(self,voxel_size = 0.05):
+    #     self.voxel = o3d.geometry.VoxelGrid.create_from_point_cloud(self.pcd_all, voxel_size=voxel_size)
 
 
     # 获取一份新的可处理的voxel

@@ -6,6 +6,7 @@ from ultralytics import YOLO
 # from Capture import Capture
 import math
 import time
+# 封装Tracker类，
 
 # 封装Detector类
 class Detector:
@@ -17,7 +18,7 @@ class Detector:
         print('Loading Car Model')
         # 打印绝对路径
         print(self.cfg['path']['stage_one_path'])
-        self.model_car = YOLO(self.cfg['path']['stage_one_path'])
+        self.model_car = YOLO(self.cfg['path']['stage_one_path'] , task = "detect")
 
         self.model_car2 = YOLO(self.cfg['path']['stage_two_path'])
         print('Done\n')
@@ -51,7 +52,7 @@ class Detector:
 
         roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
 
-        results = self.model_car2.predict(roi, conf=0.5, iou=0.7)
+        results = self.model_car2.predict(roi, conf=0.5, iou=0.7 , device = 0)
         maxConf = -1
         label = -1
         if len(results) == 0:  # no detect
@@ -69,7 +70,7 @@ class Detector:
 
     # 一阶段追踪推理
     def track_infer(self, frame):
-        results = self.model_car.track(frame, persist=True,tracker=self.tracker_path)
+        results = self.model_car.track(frame, persist=True,tracker=self.tracker_path )
         return results
 
     # 对results的结果进行判空
