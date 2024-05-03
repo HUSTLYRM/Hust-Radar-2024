@@ -93,19 +93,23 @@ class Lidar:
         子线程函数，对于/livox/lidar topic数据的处理 , data是传入的
         '''
         if self.working_flag:
+            # 获取点云
+            pc = np.float32(point_cloud2.read_points_list(data, field_names=("x", "y", "z"), skip_nans=True)).reshape(
+                -1, 3)
+
+            # 过滤点云
+            dist = np.linalg.norm(pc, axis=1)  # 计算点云距离
+            pc = pc[dist > self.min_distance]  # 雷达近距离滤除
+            # 如果在地面+5cm以上，才保留，在地面的点为-height_threshold,
+            pc = pc[pc[:, 2] > (-1 * self.height_threshold)]
             with self.lock:
-                # 获取点云
-                pc = np.float32(point_cloud2.read_points_list(data, field_names=("x", "y", "z"), skip_nans=True)).reshape(-1, 3)
-
-                # 过滤点云
-                dist = np.linalg.norm(pc, axis=1) # 计算点云距离
-                pc = pc[dist > self.min_distance]  # 雷达近距离滤除
-                # 如果在地面+5cm以上，才保留，在地面的点为-height_threshold,
-                pc = pc[pc[:,2] > (-1*self.height_threshold)]
-
-
                 # 存入点云队列
                 self.pcdQueue.add(pc)
+
+    # 获取所有点云
+    def get_all_pc(self):
+        with self.lock:
+            return self.pcdQueue.get_all_pc()
 
 
 

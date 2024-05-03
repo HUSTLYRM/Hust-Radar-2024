@@ -27,9 +27,9 @@ class PcdQueue(object):
         self.max_size = max_size # 传入最大次数
         self.queue = deque(maxlen=max_size) # 存放的是pc类型
         # 创建一个空的voxel
-        self.voxel = o3d.geometry.VoxelGrid()
-        self.voxel_size = voxel_size
-        self.pcd_all = o3d.geometry.PointCloud()
+        # self.voxel = o3d.geometry.VoxelGrid()
+        # self.voxel_size = voxel_size
+        # self.pcd_all = o3d.geometry.PointCloud()
         self.pc_all = [] # 用于存储所有点云的numpy数组
         # 内部属性
         self.record_times = 0 # 已存点云的次数
@@ -42,18 +42,22 @@ class PcdQueue(object):
             self.record_times += 1
 
         self.update_pc_all()
-
         self.point_num = self.cal_point_num()
 
-    def get_all(self):
-        return list(self.queue)
+    def get_all_pc(self):
+        return self.pc_all
 
-    # 获取所有的pc
+    # 把每个queue里的pc:[[x1,y1,z1],[x2,y2,x2],...]的点云合并到一个numpy数组中
     def update_pc_all(self):
         # 清空pc_all
         self.pc_all = []
         for pc in self.queue:
-            self.pc_all.append(np.asarray(pc))
+            self.pc_all.append(np.asarray(pc.points))
+        # 将pc_all转换为一个扁平的numpy数组，包含所有的点
+        self.pc_all = np.concatenate(self.pc_all, axis=0)
+
+    def is_full(self):
+        return self.record_times == self.max_size
 
 
 
@@ -74,13 +78,13 @@ class PcdQueue(object):
 
 
     # 获取一份新的可处理的voxel
-    def get_voxel_copy(self):
-        voxel = o3d.geometry.VoxelGrid(self.voxel)
-        return voxel
+    # def get_voxel_copy(self):
+    #     voxel = o3d.geometry.VoxelGrid(self.voxel)
+    #     return voxel
 
     # 获取只读voxel
-    def get_voxel(self):
-        return self.voxel
+    # def get_voxel(self):
+    #     return self.voxel
 
     # 聚类并返回最大簇的点云和中心点坐标
     def cluster(self,pcd):
