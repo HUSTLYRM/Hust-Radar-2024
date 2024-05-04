@@ -1,5 +1,8 @@
 debug: False
 
+global:
+  my_color: "red" # "blue"
+
 
 ctrl:
   MODE: 'video'  # 'camera'
@@ -26,3 +29,11 @@ weights:
   yolov8: 'G:\LangYa\Radar\模型\detect_all\暑假最后\0801_sumup_80.pt'
 
 portx: 'COM7'
+
+car:
+  life_span: 20 # 20帧若未刷新则认为不可信
+
+lidar:
+  height_threshold: 1.4 # 还没有量，激光雷达如果点比负1.4小，则认为在地面，不要
+  min_distance: 0.4 # 去除距离在这个范围以内的接收点云
+  lidar_topic_name: "/livox/lidar" # 点云发布话题名字
