@@ -20,13 +20,13 @@ param:
   Width: 4024 # 1280
   Height: 3036 # 640
   OffsetY: 0 # 384
-  ExposureTime: 10000.0 # 64000. .100000. 33000室内 # 增益呢23
+  ExposureTime: 30000.0 # 64000. .100000. 33000室内 # 增益呢23
   GammaEnable: True # True False4
   Gamma: 0.7 # 0 0.7
   BalanceWhiteAuto: 'Off'
-  BalanceRatioR: 1249
+  BalanceRatioR: 1904
   BalanceRatioG: 1024
-  BalanceRatioB: 1546
+  BalanceRatioB: 1723
   show_width: 1920
   show_height: 1080
   pyr_times: 2 # 金字塔层数

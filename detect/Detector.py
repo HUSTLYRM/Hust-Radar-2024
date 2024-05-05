@@ -52,7 +52,7 @@ class Detector:
 
         roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
 
-        results = self.model_car2.predict(roi, conf=0.5, iou=0.7 , device = 0)
+        results = self.model_car2.predict(roi, conf=0.5, iou=0.7 , device = 0 ,verbose = False  )
         maxConf = -1
         label = -1
         if len(results) == 0:  # no detect
@@ -70,16 +70,16 @@ class Detector:
 
     # 一阶段追踪推理
     def track_infer(self, frame):
-        results = self.model_car.track(frame, persist=True,tracker=self.tracker_path )
+        results = self.model_car.track(frame, persist=True,tracker=self.tracker_path,verbose = True)
         return results
 
     # 对results的结果进行判空
     def is_results_empty(self, results):
         if results is None:
-            print("No results!")
+            # print("No results!")
             return True
         if results[0].boxes.id is None:
-            print("No detect!")
+            # print("No detect!")
             return True
         return False
 
@@ -110,7 +110,7 @@ class Detector:
 
         # frame判空
         if frame is None:
-            print("No frame!")
+            # print("No frame!")
             return None
 
         # 获取推理结果
@@ -118,7 +118,7 @@ class Detector:
 
         # 一阶段results判空
         if self.is_results_empty(results):
-            print("No results!")
+            # print("No results!")
             return None
 
 
@@ -126,7 +126,7 @@ class Detector:
         draw_candidate = [] # 待draw的bbox(track_id,x_left,y_left,x_right,y_right,label)
 
         confidences, boxes, track_ids = self.parse_results(results) # 可以不要
-        tracker_results = [] # 最终返回存储追踪器的结果，有box, 分类id, conf
+        zip_results = [] # 最终返回存储追踪器的结果，有box, 分类id, conf
 
         index = 0
 
@@ -191,20 +191,25 @@ class Detector:
             y_left = int(y - h / 2)
             x_right = int(x + w / 2)
             y_right = int(y + h / 2)
+
+            xywh_box = [x,y,w,h]
+            # score = self.Track_value[int(track_id)][int(float(classify_label))]
             draw_candidate.append([track_id, x_left, y_left, x_right, y_right, label])
+            zip_results = [xywh_box , track_id , label ]
+
             self.id_candidate[track_id] = index
             index = index + 1
 
         for box in draw_candidate:
             track_id, x_left, y_left, x_right, y_right, label = box
             cv2.rectangle(frame, (x_left, y_left), (x_right, y_right), (255, 128, 0), 3, 8)
-            cv2.putText(frame, label, (int(x_left - 10), int(y_left - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+            cv2.putText(frame, label, (int(x_left - 10), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
                         (0, 255, 122), 2)
-            cv2.putText(frame, str(track_id), (int(x_right + 5), int(y_left - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+            cv2.putText(frame, str(track_id), (int(x_right + 5), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
                         (0, 255, 122), 2)
 
         self.loop_times = self.loop_times + 1
-        return frame
+        return frame , zip_results
 
 
 

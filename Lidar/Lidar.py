@@ -1,5 +1,5 @@
 # 构建Lidar类，作为激光雷达接收类，构建一个ros节点持续订阅/livox/lidar话题，把点云信息写入PcdQueue,整个以子线程形式运行
-from PointCloud import *
+from .PointCloud import *
 import threading
 import rospy
 from sensor_msgs.msg import PointCloud2
@@ -57,8 +57,9 @@ class Lidar:
         '''
         if not self.working_flag and self.threading is not None:
             self.stop_event.set()
-            # rospy.signal_shutdown('Stop requested')
+            rospy.signal_shutdown('Stop requested')
             self.working_flag = False
+            print("stop")
 
     # 安全关闭子线程
     # def _async_raise(self,tid, exctype):
@@ -105,6 +106,7 @@ class Lidar:
         if self.stop_event.is_set():
             return
         if self.working_flag:
+            # print("lidar working")
             # 获取点云
             pc = np.float32(point_cloud2.read_points_list(data, field_names=("x", "y", "z"), skip_nans=True)).reshape(
                 -1, 3)
@@ -116,7 +118,7 @@ class Lidar:
             pc = pc[pc[:, 2] > (-1 * self.height_threshold)]
             with self.lock:
                 # 存入点云队列
-                print("set")
+                # print("hi")
                 self.pcdQueue.add(pc)
 
     # 获取所有点云
@@ -129,11 +131,11 @@ class Lidar:
     def __del__(self):
         self.stop()
 
-lidar = Lidar(main_cfg)
-lidar.start()
-while 1 :
-    pc = lidar.get_all_pc()
-    # print("get")
+# lidar = Lidar(main_cfg)
+# lidar.start()
+# while 1 :
+#     pc = lidar.get_all_pc()
+#     # print("get")
 
 
 # class Radar(object):

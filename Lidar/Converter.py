@@ -291,36 +291,36 @@ class Converter:
 
 
 
-converter = Converter()
-# 读取../pcd_data/points/1224_indoor1.pcd
-pcd = o3d.io.read_point_cloud('./1224_scene3.pcd')
-converter.show_pcd_info(pcd) # 看初始的信息
-# 将激光雷达坐标系下的点云转换到相机坐标系下
-converter.lidar_to_camera(pcd)
-# 备份一份pcd,深拷贝,没有copy
-# pcd_backup = pcd
-pcd_backup = converter.copy_pcd(pcd)
-
-converter.show_pcd_info(pcd) # 看转换后的信息
-# 可视化点云
-o3d.visualization.draw_geometries([pcd])
-
+# converter = Converter()
+# # 读取../pcd_data/points/1224_indoor1.pcd
+# pcd = o3d.io.read_point_cloud('./1224_scene3.pcd')
+# converter.show_pcd_info(pcd) # 看初始的信息
+# # 将激光雷达坐标系下的点云转换到相机坐标系下
+# converter.lidar_to_camera(pcd)
+# # 备份一份pcd,深拷贝,没有copy
+# # pcd_backup = pcd
+# pcd_backup = converter.copy_pcd(pcd)
 #
-# 获得深度图
-imgz = converter.generate_depth_map(pcd)
-# 选择roi
-box = converter.select_box(imgz)
-# 打印roi框的坐标
-print(box)
-# 获取roi内的点云
-box_points = converter.get_points_in_box(pcd_backup, box)
-# 打印点云的数量
-print(len(box_points))
-# 可视化点云
-pcd_box = o3d.geometry.PointCloud()
-pcd_box.points = o3d.utility.Vector3dVector(box_points)
-# 打印筛选点的信息
-converter.show_pcd_info(pcd_box)
-o3d.visualization.draw_geometries([pcd_box])
-cv2.imshow('imgz',imgz)
-cv2.waitKey(0)
+# converter.show_pcd_info(pcd) # 看转换后的信息
+# # 可视化点云
+# o3d.visualization.draw_geometries([pcd])
+#
+# #
+# # 获得深度图
+# imgz = converter.generate_depth_map(pcd)
+# # 选择roi
+# box = converter.select_box(imgz)
+# # 打印roi框的坐标
+# print(box)
+# # 获取roi内的点云
+# box_points = converter.get_points_in_box(pcd_backup, box)
+# # 打印点云的数量
+# print(len(box_points))
+# # 可视化点云
+# pcd_box = o3d.geometry.PointCloud()
+# pcd_box.points = o3d.utility.Vector3dVector(box_points)
+# # 打印筛选点的信息
+# converter.show_pcd_info(pcd_box)
+# o3d.visualization.draw_geometries([pcd_box])
+# cv2.imshow('imgz',imgz)
+# cv2.waitKey(0)

@@ -23,7 +23,7 @@ class Pcd:
 
     #
 class PcdQueue(object):
-    def __init__(self, max_size,voxel_size = 0.05):
+    def __init__(self, max_size = 10,voxel_size = 0.05):
         self.max_size = max_size # 传入最大次数
         self.queue = deque(maxlen=max_size) # 存放的是pc类型
         # 创建一个空的voxel
@@ -38,6 +38,7 @@ class PcdQueue(object):
     # 目前是每次添加都会把所有点云转为voxel，然后更新voxel,TODO：改为存pc类型，不是pcd
     def add(self, pc): # 传入的是pc
         self.queue.append(pc) # 传入的是点云，一份点云占deque的一个位置
+        # print("append")
         if self.record_times < self.max_size:
             self.record_times += 1
 
@@ -49,12 +50,18 @@ class PcdQueue(object):
 
     # 把每个queue里的pc:[[x1,y1,z1],[x2,y2,x2],...]的点云合并到一个numpy数组中
     def update_pc_all(self):
-        # 清空pc_all
-        self.pc_all = []
-        for pc in self.queue:
-            self.pc_all.append(np.asarray(pc.points))
-        # 将pc_all转换为一个扁平的numpy数组，包含所有的点
-        self.pc_all = np.concatenate(self.pc_all, axis=0)
+        # print("update")
+        # # 清空pc_all
+        # self.pc_all = []
+        # #print(self.queue)
+        # # 把queue里的每个pc的点云提取，转为一个整体的numpy数组
+        # for pc in self.queue:
+        #     #print(pc)
+        #     self.pc_all.append(pc)
+        # # 将pc_all转换为一个扁平的numpy数组，包含所有的点
+        # self.pc_all = np.concatenate(self.pc_all, axis=0)
+        self.pc_all = np.vstack(self.queue)
+        # print(len(self.pc_all))
 
     def is_full(self):
         return self.record_times == self.max_size
