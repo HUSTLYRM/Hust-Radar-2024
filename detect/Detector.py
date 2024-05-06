@@ -52,6 +52,10 @@ class Detector:
 
         roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
 
+        # 展示frame的尺寸
+        # print(roi.shape)
+
+        # cv2.resize(roi, (224,224)) # openvino需要
         results = self.model_car2.predict(roi, conf=0.5, iou=0.7 , device = 0 ,verbose = False  )
         maxConf = -1
         label = -1
@@ -113,8 +117,14 @@ class Detector:
             # print("No frame!")
             return None
 
+        # # 展示frame的尺寸
+        # print(frame.shape)
+
+
         # 获取推理结果
         results = self.track_infer(frame)
+
+
 
         # 一阶段results判空
         if self.is_results_empty(results):
@@ -138,6 +148,7 @@ class Detector:
                     self.Track_value[int(track_id)][i] = math.floor(self.Track_value[int(track_id)][i] / 15)
 
             x,y,w,h = box
+
             classify_label,conf = self.classify_infer(frame,box)
 
             # 二阶段识别次数和置信度的加权
@@ -193,9 +204,11 @@ class Detector:
             y_right = int(y + h / 2)
 
             xywh_box = [x,y,w,h]
+            xyxy_box = [x_left,y_left,x_right,y_right]
             # score = self.Track_value[int(track_id)][int(float(classify_label))]
             draw_candidate.append([track_id, x_left, y_left, x_right, y_right, label])
-            zip_results = [xywh_box , track_id , label ]
+            # print("in",xyxy_box,xywh_box)
+            zip_results.append([xyxy_box, xywh_box , track_id , label ])
 
             self.id_candidate[track_id] = index
             index = index + 1

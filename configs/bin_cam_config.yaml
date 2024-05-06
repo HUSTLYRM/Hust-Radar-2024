@@ -20,7 +20,7 @@ param:
   Width: 4024 # 1280
   Height: 3036 # 640
   OffsetY: 0 # 384
-  ExposureTime: 30000.0 # 64000. .100000. 33000室内 # 增益呢23
+  ExposureTime: 25000.0 # 64000. .100000. 33000室内 # 增益呢23
   GammaEnable: True # True False4
   Gamma: 0.7 # 0 0.7
   BalanceWhiteAuto: 'Off'

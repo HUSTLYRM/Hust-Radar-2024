@@ -2,10 +2,6 @@
 from detect.Detector import Detector
 from detect.Video import Video
 from detect.Capture import Capture
-from Lidar.Lidar import Lidar
-from Lidar.Converter import Converter
-from Lidar.PointCloud import *
-from Car import *
 import cv2
 import time
 from collections import deque
@@ -13,18 +9,18 @@ from ruamel.yaml import YAML
 
 # 创建一个长度为N的队列
 
-mode = "video" # "video" or "camera"
-round = 1 #训练赛第几轮
+mode = "camera" # "video" or "camera"
+round = 10 #训练赛第几轮
 
 if __name__ == '__main__':
-    video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/tran_record/0505/ori_data/video10.mp4"
+    video_path = "data/right.mp4"
     detector_config_path = "configs/detector_config.yaml"
     binocular_camera_cfg_path = "configs/bin_cam_config.yaml"
     main_config_path = "configs/main_config.yaml"
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
 
     # 类初始化
-    detector = Detector(detector_config_path)
+    #detector = Detector(detector_config_path)
     # lidar = Lidar(main_cfg)
 
     if mode == "video":
@@ -32,8 +28,9 @@ if __name__ == '__main__':
     elif mode == "camera":
         capture = Capture(binocular_camera_cfg_path,"new_cam")
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
-    # out = cv2.VideoWriter(f'only_detect{round}.mp4', fourcc, 24, (capture.width,capture.height))  # 文件名，编码器，帧率，帧大小
+    # 使用mp4编码器
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(f'camera_test{round}.mp4', fourcc, 24, (capture.width,capture.height))  # 文件名，编码器，帧率，帧大小
 
 
     # fps计算
@@ -63,30 +60,30 @@ if __name__ == '__main__':
         if frame is None:
             print("no frame")
             break
-
+        image = frame
         # 目标检测部分
-        ori_frame = frame.copy()
+        #ori_frame = frame.copy()
         # 获得推理结果
-        infer_result = detector.infer(frame)
-        image = ori_frame
-        if infer_result is not None:
-            result_img ,results = infer_result
-            if results is not None:
-                # pc_all = lidar.get_all_pc()
-                # 对每个结果进行分析 , 进行目标定位
-                for result in results:
-                    pass
+        #infer_result = detector.infer(frame)
+        # image = ori_frame
+        # if infer_result is not None:
+        #     result_img ,results = infer_result
+        #     if results is not None:
+        #         # pc_all = lidar.get_all_pc()
+        #         # 对每个结果进行分析 , 进行目标定位
+        #         for result in results:
+        #             pass
+        #
+        #
+        #
+        #     if result_img is not None:
+        #         # 用新图替代
+        #         image = result_img
 
-
-
-            if result_img is not None:
-                # 用新图替代
-                image = result_img
-
-        cv2.putText(image, "fps: {:.2f}".format(avg_fps), (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122),
+        cv2.putText(image, "fps: {:.2f}".format(avg_fps), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122),
                     2)
 
-        # out.write(image)
+        out.write(image)
         # resize到1920*1080
         image = cv2.resize(image, (1920, 1280))
         cv2.imshow("frame", image)
@@ -96,7 +93,7 @@ if __name__ == '__main__':
 
 
     # lidar.stop()
-    # out.release()
+    out.release()
     capture.release()
 
     cv2.destroyAllWindows()

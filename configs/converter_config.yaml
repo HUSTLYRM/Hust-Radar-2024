@@ -1,0 +1,37 @@
+params:
+  max_depth: 20
+  width: 4024
+  height: 3036
+
+calib:
+  extrinsic:
+    R:
+      rows: 3
+      cols: 3
+      dt: d
+      data: [-0.0117254, -0.999898, 0.00819567, -0.0173332, -0.00799176, -0.999818, 0.999781, -0.0118654, -0.0172377]
+    T:
+      rows: 3
+      cols: 1
+      dt: d
+      data: [0.0513933, 0.0880809, 0.137568]
+  intrinsic:
+    cx: 2005.04664860767
+    cy: 1607.24342386345
+    fx: 4628.00030763765
+    fy: 4643.90946043923
+  distortion:
+    rows: 5
+    cols: 1
+    dt: d
+    data: [-0.0575182576119721 , -0.00908964625820222 ,-0.0000261753677788236, -0.00106913079754049,0]
+
+cluster:
+  eps: 0.40 # eps是DBSCAN算法的一个参数，它是一个浮点数，用来控制邻域的大小
+  min_points: 10 # min_samples是DBSCAN算法的一个参数，它是一个整数，用来控制核心点的最小个数
+  print_progress: True # 是否打印进度
+
+filter:
+  nb_neighbors: 20
+  std_ratio: 2.0
+  voxel_size: 0.035

@@ -1,17 +1,13 @@
 # 仿照capture，创建一个Video类，用于处理视频文件的读取
 
 import cv2
-import numpy as np
-import os
-from Detector import Detector
-import time
 from ruamel.yaml import YAML
 
-# 加载配置文件
-main_cfg_path = "../configs/main_config.yaml"
-binocular_camera_cfg_path = "../configs/bin_cam_config.yaml"
-main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
-bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
+# # 加载配置文件
+# main_cfg_path = "../configs/main_config.yaml"
+# binocular_camera_cfg_path = "../configs/bin_cam_config.yaml"
+# main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
+# bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
 
 class Video:
     def __init__(self, video_path):
@@ -52,13 +48,14 @@ class Video:
 
 
     def __del__(self):
-        self.cap.release()
-        cv2.destroyAllWindows()
+        if self.cap is not None:
+            self.release()
+        # cv2.destroyAllWindows()
 
     # release the video capture
     def release(self):
         self.cap.release()
-        cv2.destroyAllWindows()
+        # cv2.destroyAllWindows()
 
 # def main():
 #     image_path = "../data/002808.jpg"

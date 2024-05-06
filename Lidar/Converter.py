@@ -194,6 +194,16 @@ class Converter:
         img_jet = cv2.applyColorMap(img_z, cv2.COLORMAP_JET)
         return img_jet
 
+    # 传入一个点云，选取距离的中值点
+    def get_center_mid_distance(self, pcd):
+        pc = self.get_points(pcd)
+        # 计算每个点的距离
+        distances = np.linalg.norm(pc, axis=1)
+        # 找到中值点的索引
+        center_idx = np.argsort(distances)[len(distances) // 2]
+        center = pc[center_idx]
+        return center
+
 
     # 获取投影后落在深度图矩形框内的点云 , 并不是反向映射，而是直接提取落在矩形框内的点云
     def get_points_in_box(self, pcd, box): # 传入的为pcd格式点云，box是一个元组，包含了矩形框的左上角和右下角的坐标：(min_u, min_v, max_u, max_v)，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
@@ -217,7 +227,7 @@ class Converter:
         box_points = np.asarray(pcd.points)[mask]
 
 
-        return box_points
+        return box_points # 返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
 
     # 传入一个图片，手动选择一个矩形框，返回这个矩形框的坐标（min_u, min_v, max_u, max_v）
     def select_box(self, img):
@@ -245,15 +255,19 @@ class Converter:
         # 使用DBSCAN进行聚类
         with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
             labels = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points, print_progress=self.print_cluster_progress))
-
+        # print("labels",labels)
         # 如果没有找到任何簇，返回一个空的点云和中心点
-        if labels.max() == -1:
+        if labels.argmax() == -1:
             return np.array([]), np.array([0, 0, 0])
 
         # 计算每个簇的大小
         max_label = labels.max()
-        print(f"point cloud has {max_label + 1} clusters")
+        # print(f"point cloud has {max_label + 1} clusters")
         cluster_sizes = [len(np.where(labels == i)[0]) for i in range(max_label + 1)]
+
+        # 判空
+        if len(cluster_sizes) == 0:
+            return np.array([]), np.array([0, 0, 0])
 
         # 找到最大簇的索引
         max_cluster_idx = np.argmax(cluster_sizes)
@@ -264,7 +278,7 @@ class Converter:
         # 计算最大簇的中心点
         centroid = max_cluster_points.mean(axis=0)
 
-        return max_cluster_points, centroid
+        return max_cluster_points, centroid # 返回的是一个numpy格式的点云和一个中心点,中心点为[x,y,z]
 
     # 对传入点云进行滤波去除离群点和噪声点
     def remove_outliers(self, pcd):
@@ -286,6 +300,11 @@ class Converter:
         pcd = self.remove_outliers(pcd)
 
         return pcd
+
+    # 求一个点[x,y,z]的距离
+    def get_distance(self, point):
+        return np.sqrt(np.sum(point ** 2))
+
 
     # 传入一个点云，返回一个点云的中心点（x,y,z）
 
