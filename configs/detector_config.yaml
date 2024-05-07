@@ -1,5 +1,5 @@
 path:
-  stage_one_path: "/home/nvidia/RadarWorkspace/code/Radar_Develop/weights/stage_one.pt" # "/home/nvidia/RadarWorkspace/code/Radar_Develop/weights/train/stage_one/weights/best.pt"  /home/nvidia/RadarWorkspace/code/Radar_Develop/weights/train/stage_one/weights/best_openvino_model
+  stage_one_path: "/home/nvidia/RadarWorkspace/code/Radar_Develop/weights/train/stage_one/weights/best.pt" # "/home/nvidia/RadarWorkspace/code/Radar_Develop/weights/train/stage_one/weights/best.pt"  /home/nvidia/RadarWorkspace/code/Radar_Develop/weights/train/stage_one/weights/best_openvino_model
   stage_two_path: "/home/nvidia/RadarWorkspace/code/Radar_Develop/weights/224_stage_two/armor224.pt" # "/home/nvidia/RadarWorkspace/code/Radar_Develop/weights/train/stage_two/weights/best.pt"
   tracker_path: "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/bytetrack.yaml"
 

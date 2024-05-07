@@ -6,6 +6,7 @@ from ultralytics import YOLO
 # from Capture import Capture
 import math
 import time
+import threading
 # 封装Tracker类，
 
 # 封装Detector类
@@ -39,6 +40,11 @@ class Detector:
         self.id_candiate = [0] * 1000
         # 设置计数器
         self.loop_times = 0
+
+        # 多线程操作
+        # 初始化锁对象和结果列表
+        self._result_lock = threading.Lock()
+        self._results = []
 
 
 
@@ -115,7 +121,7 @@ class Detector:
         # frame判空
         if frame is None:
             # print("No frame!")
-            return None
+            return None , None
 
         # # 展示frame的尺寸
         # print(frame.shape)
@@ -129,7 +135,7 @@ class Detector:
         # 一阶段results判空
         if self.is_results_empty(results):
             # print("No results!")
-            return None
+            return frame , None
 
 
         exist_armor = [-1] * 12 # armor number映射Track_id
@@ -223,6 +229,32 @@ class Detector:
 
         self.loop_times = self.loop_times + 1
         return frame , zip_results
+
+    # 目标检测子线程
+        # 图像处理子线程方法
+    def detect_thread(self, capture):
+        start_time = time.time()
+        while True:  # 无限循环以持续处理图像
+            now = time.time()
+            fps = 1 / (now - start_time)
+            start_time = now
+            print("in fps",fps)
+            frame = capture.get_frame()
+            if frame is not None:
+                # 执行目标检测
+                infer_result = self.infer(frame)
+
+                if infer_result is not None:
+                    with self._result_lock:
+                        self._results = infer_result  # 更新结果列表
+
+
+
+
+        # 方法，来源于主线程调取最新的结果
+    def get_results(self):
+        with self._result_lock:
+            return self._results  # 返回最新的结果列表
 
 
 

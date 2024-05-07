@@ -25,7 +25,9 @@ class Car:
         self.field_xy = [] # 赛场坐标系下的二维坐标 , 单位是m , float
         # 当前信息可信生命周期,每次图像检测帧对所有车辆生命周期进行刷新，如果生命周期为0,则初始化所有解算信息
         self.life_span_max = life_span # 最大生命周期
-        self.life_span = 0 # 当前生命周期，每次检测帧对所有车辆生命周期进行刷新，如果生命周期为0,则初始化所有解算信息
+        self.life_span = 0 # 当前生命周期，每次检测帧对所有车辆生命周期进行刷新，如果生命周期为0,则认为车辆信息不可信，但是不初始化，只是不发给哨兵，但是还是发给裁判系统
+        # 车辆信息是否可信
+        self.trust = False
 
     # 写入车辆图像追踪信息
     def set_track_info(self, track_id, conf, xywh):
@@ -35,6 +37,7 @@ class Car:
         self.center_xy = [xywh[0], xywh[1]]
         self.image_xyxy = [xywh[0] - xywh[2] / 2, xywh[1] - xywh[3] / 2, xywh[0] + xywh[2] / 2, xywh[1] + xywh[3] / 2]
         self.life_span = self.life_span_max # 重置生命周期
+        self.trust = True
 
     # 写入相机坐标系下的三维坐标
     def set_camera_xyz(self, xyz):
@@ -49,14 +52,15 @@ class Car:
 
     # 中间refresh函数,初始化所有解算信息
     def refresh(self):
-        self.track_id = -1
-        self.conf = 0
-        self.image_xywh = []
-        self.image_xyxy = []
-        self.center_xy = []
-        self.camera_xyz = []
-        self.field_xyz = []
-        self.field_xy = []
+        # self.track_id = -1
+        # self.conf = 0
+        # self.image_xywh = []
+        # self.image_xyxy = []
+        # self.center_xy = []
+        # self.camera_xyz = []
+        # self.field_xyz = []
+        # self.field_xy = []
+        self.trust = False
 
     # 如果本帧没有检测此车，生命周期减一
     def life_down(self):
@@ -102,6 +106,7 @@ class CarList:
         self.life_span = cfg["car"]["life_span"] # 车辆信息可信生命周期
         self.RedCarsID = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5 , 7:7} # 红方车辆序号和车辆ID的对应关系
         self.BlueCarsID = {1: 101, 2: 102, 3: 103, 4: 104, 5: 105 , 7:107} # 蓝方车辆序号和车辆ID的对应关系
+        self.label2ID = {"R1":1, "R2":2, "R3":3, "R4":4, "R5":5, "R7":7, "B1":101, "B2":102, "B3":103, "B4":104, "B5":105, "B7":107}
         # 初始化车辆信息
         self.cars = {self.RedCarsID[1]: Car(self.RedCarsID[1], self.life_span),
                      self.RedCarsID[2]: Car(self.RedCarsID[2], self.life_span),
@@ -153,6 +158,16 @@ class CarList:
                     results.append([car.car_id, car.field_xyz])
         return results
 
+    # 获取所有信息，如果车的信息可信,返回车的id，中心坐标，相机坐标，赛场坐标 , 颜色
+    # result in results:[car_id , center_xy , camera_xyz , field_xyz ， color]
+    def get_all_info(self):
+        results = []
+        with self.lock:
+            for car in self.cars.values():
+                if car.trust:
+                    results.append([car.car_id, car.center_xy, car.camera_xyz, car.field_xyz , car.color])
+        return results
+
     # 简易辅助哨兵决策测试用，获取图像坐标系下我方哨兵(7号车）和敌方车辆的中心点信息,返回results
     # result:[sentinel_xy , enemy_infos] , sentinel_xy:[sentinel_x,sentinel_y] , 归一化
     # enemy_info in enemy_infos:[enemy_id , center_x , center_y] # enemy_id为1-5,7 或101-105,107
@@ -176,17 +191,21 @@ class CarList:
 
         return results
 
+    # 由标签获取车ID，如输入"R1”，返回1
+    def get_car_id(self , label):
+        return self.label2ID[label]
 
 
-main_cfg_path = "../configs/main_config.yaml"
 
-main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
-cars = CarList(main_cfg)
-results = cars.get_center_info()
-sentinel_xy , enemy_infos = results
-print(sentinel_xy)
-for enemy_info in enemy_infos:
-    print(enemy_info)
+# main_cfg_path = "../configs/main_config.yaml"
+#
+# main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
+# cars = CarList(main_cfg)
+# results = cars.get_center_info()
+# sentinel_xy , enemy_infos = results
+# print(sentinel_xy)
+# for enemy_info in enemy_infos:
+#     print(enemy_info)
 
 
 

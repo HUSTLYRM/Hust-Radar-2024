@@ -305,6 +305,13 @@ class Converter:
     def get_distance(self, point):
         return np.sqrt(np.sum(point ** 2))
 
+    # 传入相机坐标系的点云[x,y,z]，返回赛场坐标系的点云[x,y,z]，TODO:完成方法
+    def camera_to_field(self, point):
+        return point
+
+    # 传入两个点，返回两个点的距离
+    def get_distance_between_2points(self, point1, point2):
+        return np.linalg.norm(point1 - point2)
 
     # 传入一个点云，返回一个点云的中心点（x,y,z）
 
