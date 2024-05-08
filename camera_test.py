@@ -10,7 +10,7 @@ from ruamel.yaml import YAML
 # 创建一个长度为N的队列
 
 mode = "camera" # "video" or "camera"
-round = 10 #训练赛第几轮
+round = 11 #训练赛第几轮
 
 if __name__ == '__main__':
     video_path = "data/right.mp4"
@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
     # 使用mp4编码器
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(f'camera_test{round}.mp4', fourcc, 24, (capture.width,capture.height))  # 文件名，编码器，帧率，帧大小
+    out = cv2.VideoWriter(f'camera0507_{round}.mp4', fourcc, 12, (capture.width,capture.height))  # 文件名，编码器，帧率，帧大小
 
 
     # fps计算

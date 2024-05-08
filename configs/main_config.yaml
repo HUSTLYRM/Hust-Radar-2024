@@ -1,7 +1,7 @@
 debug: False
 
 global:
-  my_color: "red" # "blue"
+  my_color: "Red" # "Blue"
 
 
 ctrl:

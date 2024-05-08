@@ -257,6 +257,9 @@ class Converter:
             labels = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points, print_progress=self.print_cluster_progress))
         # print("labels",labels)
         # 如果没有找到任何簇，返回一个空的点云和中心点
+
+        if len(labels) == 0:
+            return np.array([]), np.array([0, 0, 0])
         if labels.argmax() == -1:
             return np.array([]), np.array([0, 0, 0])
 

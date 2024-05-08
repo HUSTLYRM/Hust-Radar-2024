@@ -7,6 +7,7 @@ from Lidar.Converter import Converter
 from Lidar.PointCloud import PcdQueue
 from Car.Car import *
 import numpy as np
+import pandas as pd
 import threading
 import cv2
 import time
@@ -18,29 +19,32 @@ import os
 # 创建一个长度为N的队列
 
 mode = "camera" # "video" or "camera"
-save_video = False
+save_video = True
 round = 11 # 练赛第几轮
 
 if __name__ == '__main__':
-    video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/tran_record/0505/ori_data/video10.mp4"
+    video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/train_record/0505/ori_data/video10.mp4"
     detector_config_path = "configs/detector_config.yaml"
     binocular_camera_cfg_path = "configs/bin_cam_config.yaml"
     main_config_path = "configs/main_config.yaml"
     converter_config_path = "configs/converter_config.yaml"
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
+
+    # 设置保存路径
+    save_video_folder_path = "data/train_record/"  # 保存视频的文件夹
+    # 今日日期，例如2024年5月6日则为20240506
+    today = time.strftime("%Y%m%d", time.localtime())
+    # 今日的视频文件夹
+    today_video_folder_path = save_video_folder_path + today + "/"
+    # 当天的视频文件夹不存在则创建
+    if not os.path.exists(today_video_folder_path):
+        os.makedirs(today_video_folder_path)
+    # 视频名称，以时分秒命名，19：29：30则为192930
+    video_name = time.strftime("%H%M%S", time.localtime())
+    # 视频保存路径
+    video_save_path = today_video_folder_path + video_name + ".mp4"
     if save_video:
-        save_video_folder_path = "data/train_record/" # 保存视频的文件夹
-        # 今日日期，例如2024年5月6日则为20240506
-        today = time.strftime("%Y%m%d", time.localtime())
-        # 今日的视频文件夹
-        today_video_folder_path = save_video_folder_path + today + "/"
-        # 当天的视频文件夹不存在则创建
-        if not os.path.exists(today_video_folder_path):
-            os.makedirs(today_video_folder_path)
-        # 视频名称，以时分秒命名，19：29：30则为192930
-        video_name = time.strftime("%H%M%S", time.localtime())
-        # 视频保存路径
-        video_save_path = today_video_folder_path + video_name + ".mp4"
+
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
         out = cv2.VideoWriter(video_save_path, fourcc, 6, (1920, 1280))  # 文件名，编码器，帧率，帧大小
 
@@ -69,6 +73,12 @@ if __name__ == '__main__':
     # 开启激光雷达线程
     lidar.start()
     threading.Thread(target=detector.detect_thread, args=(capture,), daemon=True).start()
+
+    # 创建一个空列表来存储所有检测的结果
+    all_detections = []
+
+    # 当前帧ID
+    frame_id = 1
 
 
 
@@ -196,6 +206,10 @@ if __name__ == '__main__':
         # 如果是我方车辆，找到所有敌方车辆，计算与每一台敌方车辆距离，并在图像两车辆中心点之间画线，线上写距离
         for all_info in all_infos:
             car_id , center_xy , camera_xyz , field_xyz , color = all_info
+
+            # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
+            all_detections.append([frame_id] + list(all_info))
+
             print("car_id:",car_id,"center_xy:",center_xy,"camera_xyz:",camera_xyz,"field_xyz:",field_xyz ,"color:",color)
             print("mc",my_color,"mc","c",color,"c")
             # 将信息分两个列表存储
@@ -232,8 +246,17 @@ if __name__ == '__main__':
         if save_video:
             out.write(result_img)
         cv2.imshow("frame", result_img) # 不加3帧
+        frame_id += 1
         if cv2.waitKey(1) == ord('q'):
             break
+
+    # 循环结束，将检测结果写入xlsx文件
+    print(all_detections)
+    df = pd.DataFrame(all_detections,
+                      columns=['frame_id', 'car_id', 'center_xy', 'camera_xyz', 'field_xyz', 'color'])
+    # 将结果写入xlsx文件中，文件名使用保存视频文件名但后缀修改为xlsx
+    xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
+    df.to_excel(xlsx_file_name, index=False)
 
     capture.release()
     if save_video:

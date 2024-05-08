@@ -80,7 +80,7 @@ class Detector:
 
     # 一阶段追踪推理
     def track_infer(self, frame):
-        results = self.model_car.track(frame, persist=True,tracker=self.tracker_path,verbose = True)
+        results = self.model_car.track(frame, persist=True,tracker=self.tracker_path,verbose = False)
         return results
 
     # 对results的结果进行判空
