@@ -4,8 +4,8 @@ import serial.tools.list_ports
 import struct
 from ruamel.yaml import YAML
 import time
-class Communicator:
-    def __init__(self , cfg, port = '/dev/ttyUSB0'):
+class Sender:
+    def __init__(self , cfg, port = '/dev/pts/3'):
         # 我方颜色
         self.my_color = cfg['global']['my_color']
 
@@ -20,7 +20,8 @@ class Communicator:
         self.port = port
         self.bps = 115200
         self.timex = 0.5
-        self.SOF = b'\xA5'
+        # self.SOF = b'\xA5'
+        self.SOF = struct.pack('B',0xa5)
         self.seq = 0  # 目前均为单包数据，且无重发机制?
         self.ser = self.serial_init()
         self.CRC8_TABLE = [
@@ -153,10 +154,9 @@ class Communicator:
 
         _SOF = self.SOF
         _data_length = struct.pack('H', data_length)
+        print(_data_length)
         _seq = struct.pack('B', self.seq)
-        _frame_header =  _SOF + \
-                        _data_length + \
-                        _seq
+        _frame_header =  _SOF + _data_length + _seq
         frame_header = _frame_header + struct.pack('B', self.get_crc8_check_byte(_frame_header))
         return frame_header
 
@@ -169,14 +169,19 @@ class Communicator:
         data = struct.pack('H', carID) + struct.pack('ff', x, y)
 
         data_len = len(data)
+        # print("data_len",data_len)
         # print(data_len)
         frame_head = self.get_frame_header(data_len)
+        # print("head:",frame_head)
 
         tx_buff = frame_head + cmd_id + data
+        # print("tx_buff",len(tx_buff))
 
         frame_tail = self.get_frame_tail(tx_buff)
+        # print("frame_tail",len(frame_tail))
 
         tx_buff += frame_tail
+        # print("all",len(tx_buff))
 
         return tx_buff
 
@@ -302,11 +307,12 @@ if __name__ == '__main__':
     main_cfg_path = "../configs/main_config.yaml"
     main_cfg = YAML().load(open(main_cfg_path, 'r'))
 
-    comm = Communicator(main_cfg)
+    sender = Sender(main_cfg)
     while True:
-        comm.send_enemy_location(101, 10.1, 12.2)
-        # 休息1s
-        time.sleep(1)
+        # 循环列表，x在[10,20]之间变化，每次变化0.1 8819.32mm,5706.98mm
+        sender.send_enemy_location(1, 27, 14)
+        time.sleep(0.1)
+
 
         # print()
         # comm.send_sentinel_alert_info(101, 1, 1)

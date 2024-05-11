@@ -1,6 +1,7 @@
 import serial
 import serial.tools.list_ports
 import struct
+import time
 
 
 CRC8_TABLE = [
@@ -155,6 +156,20 @@ def send_enemy_location(ser, carID, x, y):
     CRC16 = get_crc16_check_byte(tx_buff)
     frame_tail = bytes([CRC16 & 0x00ff, (CRC16 & 0xff00) >> 8])
     tx_buff += frame_tail
+    print(tx_buff)
     ser.write(tx_buff)
 
     return tx_buff
+
+port_list = list(serial.tools.list_ports.comports())
+
+if len(port_list) == 0:
+    print('无可用串口')
+else:
+    for i in range(0, len(port_list)):
+        print(port_list[i])
+
+ser = serial_init('/dev/pts/3')
+while True:
+    send_enemy_location(ser, 105, 10.1, 12.2)
+    time.sleep(1)
