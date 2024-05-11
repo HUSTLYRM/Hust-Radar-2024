@@ -1,0 +1,688 @@
+metadata:
+  version: "1.0"
+  author: "Alex Jia"
+  last_updated: "2024-05-8"
+
+
+decision_algorithm:
+  distance_weight: 0.5
+  health_weight: 0.3
+
+# 可视化部分地图信息
+map_width: 1412
+map_height: 754
+
+# 车辆ID
+RedCarsID: [1, 2, 3, 4, 5, 6, 7]
+BlueCarsID: [101, 102, 103, 104, 105, 106, 107]
+
+block_num: 40
+nodes:
+  - id: '6'
+    flag: 'red'
+    corners:
+      - [140, 752]
+      - [140, 685]
+      - [222, 685]
+      - [222, 625]
+      - [302, 625]
+      - [302, 700]
+      - [610, 700]
+      - [610, 752]
+  - id: '18'
+    flag: 'red'
+    corners:
+      - [540, 390]
+      - [540, 300]
+      - [580, 250]
+      - [820, 520]
+      - [740, 630]
+  - id: '8'
+    flag: 'red'
+    corners:
+      - [312, 693]
+      - [312, 635]
+      - [470, 635]
+      - [470, 693]
+  - id: '7'
+    flag: 'red'
+    corners:
+      - [230, 620]
+      - [230, 550]
+      - [335, 550]
+      - [385, 620]
+  - id: '5'
+    flag: 'red'
+    corners:
+      - [222, 220]
+      - [222, 3]
+      - [450, 3]
+      - [450, 50]
+      - [335, 220]
+  - id: '17'
+    flag: 'red'
+    corners:
+      - [460, 50]
+      - [460, 3]
+      - [743, 3]
+      - [743, 50]
+  - id: '13'
+    flag: 'red'
+    corners:
+      - [590, 60]
+      - [676, 60]
+      - [520, 285]
+      - [450, 265]
+  - id: '12'
+    flag: 'red'
+    corners:
+      - [450, 420]
+      - [450, 270]
+      - [520, 290]
+      - [520, 395]
+  - id: '14'
+    flag: 'red'
+    corners:
+      - [460, 430]
+      - [515, 405]
+      - [570, 485]
+      - [525, 525]
+  - id: '19'
+    flag: 'red'
+    corners:
+      - [15, 15]
+      - [120, 15]
+      - [120, 120]
+      - [15, 120]
+  - id: '10'
+    flag: 'red'
+    corners:
+      - [345, 235]
+      - [460, 70]
+      - [570, 70]
+      - [440, 260]
+  - id: '9'
+    flag: 'red'
+    corners:
+      - [345, 510]
+      - [345, 240]
+      - [440, 265]
+      - [440, 430]
+  - id: '4'
+    flag: 'red'
+    corners:
+      - [210, 510]
+      - [210, 240]
+      - [350, 240]
+      - [350, 510]
+  - id: '11'
+    flag: 'red'
+    corners:
+      - [420, 615]
+      - [350, 515]
+      - [445, 435]
+      - [520, 540]
+      - [535, 585]
+      - [515, 615]
+  - id: '15'
+    flag: 'red'
+    corners:
+      - [535, 680]
+      - [510, 630]
+      - [535, 585]
+      - [590, 585]
+      - [620, 630]
+      - [590, 680]
+  - id: '16'
+    flag: 'red'
+    corners:
+      - [540, 580]
+      - [595, 580]
+      - [625, 630]
+      - [585, 690]
+      - [720, 690]
+      - [745, 660]
+      - [575, 490]
+      - [526, 530]
+  - id: '1'
+    flag: 'red'
+    corners:
+      - [0, 320]
+      - [83, 275]
+      - [180, 330]
+      - [180, 426]
+      - [83, 481]
+      - [0, 436]
+  - id: '20'
+    flag: 'red'
+    corners:
+      - [3, 230]
+      - [3, 190]
+      - [45, 190]
+      - [45, 230]
+  - id: '2'
+    flag: 'red'
+    corners:
+      - [0, 320]
+      - [0, 245]
+      - [60, 245]
+      - [60, 170]
+      - [210, 170]
+      - [210, 378]
+      - [180, 378]
+      - [180, 330]
+      - [83, 275]
+  - id: '3'
+    flag: 'red'
+    corners:
+      - [0, 570]
+      - [0, 436]
+      - [83, 481]
+      - [180, 426]
+      - [180, 378]
+      - [210, 378]
+      - [210, 570]
+  - id: '26'
+    flag: 'blue'
+    corners:
+      - [1272, 5]
+      - [1272, 72]
+      - [1190, 72]
+      - [1190, 132]
+      - [1110, 132]
+      - [1110, 57]
+      - [802, 57]
+      - [802, 5]
+  - id: '38'
+    flag: 'blue'
+    corners:
+      - [872, 367]
+      - [872, 457]
+      - [832, 507]
+      - [592, 237]
+      - [672, 127]
+  - id: '28'
+    flag: 'blue'
+    corners:
+      - [942, 64]
+      - [1100, 64]
+      - [1100, 122]
+      - [942, 122]
+  - id: '27'
+    flag: 'blue'
+    corners:
+      - [1182, 137]
+      - [1182, 207]
+      - [1077, 207]
+      - [1027, 137]
+  - id: '25'
+    flag: 'blue'
+    corners:
+      - [1190, 537]
+      - [1190, 754]
+      - [962, 754]
+      - [962, 707]
+      - [1077, 537]
+  - id: '37'
+    flag: 'blue'
+    corners:
+      - [952, 707]
+      - [952, 754]
+      - [669, 754]
+      - [669, 707]
+  - id: '33'
+    flag: 'blue'
+    corners:
+      - [822, 697]
+      - [736, 697]
+      - [892, 472]
+      - [962, 492]
+  - id: '32'
+    flag: 'blue'
+    corners:
+      - [962, 337]
+      - [962, 487]
+      - [892, 467]
+      - [892, 362]
+  - id: '34'
+    flag: 'blue'
+    corners:
+      - [952, 327]
+      - [897, 352]
+      - [842, 272]
+      - [887, 232]
+  - id: '39'
+    flag: 'blue'
+    corners:
+      - [1397, 742]
+      - [1292, 742]
+      - [1292, 637]
+      - [1397, 637]
+  - id: '30'
+    flag: 'blue'
+    corners:
+      - [1067, 522]
+      - [952, 687]
+      - [842, 687]
+      - [972, 497]
+  - id: '29'
+    flag: 'blue'
+    corners:
+      - [1067, 247]
+      - [1067, 517]
+      - [972, 492]
+      - [972, 327]
+  - id: '24'
+    flag: 'blue'
+    corners:
+      - [1202, 247]
+      - [1202, 517]
+      - [1062, 517]
+      - [1062, 247]
+  - id: '31'
+    flag: 'blue'
+    corners:
+      - [992, 142]
+      - [1062, 242]
+      - [967, 322]
+      - [892, 217]
+      - [877, 172]
+      - [897, 142]
+
+  - id: '35'
+    flag: 'blue'
+    corners:
+      - [877, 77]
+      - [902, 127]
+      - [877, 172]
+      - [822, 172]
+      - [792, 127]
+      - [822, 77]
+
+  - id: '36'
+    flag: 'blue'
+    corners:
+      - [872, 177]
+      - [817, 177]
+      - [787, 127]
+      - [827, 67]
+      - [692, 67]
+      - [667, 97]
+      - [837, 267]
+      - [886, 227]
+
+  - id: '21'
+    flag: 'blue'
+    corners:
+      - [1412, 437]
+      - [1329, 482]
+      - [1232, 427]
+      - [1232, 331]
+      - [1329, 276]
+      - [1412, 321]
+
+  - id: '40'
+    flag: 'blue'
+    corners:
+      - [1409, 527]
+      - [1409, 567]
+      - [1367, 567]
+      - [1367, 527]
+
+  - id: '22'
+    flag: 'blue'
+    corners:
+      - [1412, 437]
+      - [1412, 512]
+      - [1352, 512]
+      - [1352, 587]
+      - [1202, 587]
+      - [1202, 379]
+      - [1232, 379]
+      - [1232, 427]
+      - [1329, 482]
+
+  - id: '23'
+    flag: 'blue'
+    corners:
+      - [1412, 187]
+      - [1412, 321]
+      - [1329, 276]
+      - [1232, 331]
+      - [1232, 379]
+      - [1202, 379]
+      - [1202, 187]
+
+
+
+access_edges:
+  - source: '1'
+    target: '2'
+#    mov_distance: 10
+#    attack_distance: 5
+  - source: '1'
+    target: '3'
+
+  - source: '1'
+    target: '4' # 此处虽然在几何上并不相连，但实在是挨得太近了
+
+  - source: '2'
+    target: '1'
+
+  - source: '2'
+    target: '3'
+
+
+  - source: '2'
+    target: '4'
+
+  - source: '2'
+    target: '5'
+
+  - source: '3'
+    target: '1'
+
+  - source: '3'
+    target: '2'
+
+  - source: '3'
+    target: '4'
+
+  - source: '3'
+    target: '6'
+
+  - source: '4'
+    target: '1'
+
+  - source: '4'
+    target: '2'
+
+  - source: '4'
+    target: '3'
+
+  - source: '4'
+    target: '9'
+
+  - source: '5'
+    target: '2'
+
+  - source: '5'
+    target: '17'
+
+  - source: '6'
+    target: '3'
+  - source: '6'
+    target: '7'
+  - source: '6'
+    target: '8'
+
+  - source: '7'
+    target: '6'
+
+  - source: '8'
+    target: '6'
+
+  - source: '9'
+    target: '4'
+  - source: '9'
+    target: '10'
+  - source: '9'
+    target: '11'
+
+  - source: '10'
+    target: '9'
+
+  - source: '11'
+    target: '9'
+  - source: '11'
+    target: '15'
+
+  - source: '12'
+    target: '13'
+  - source: '12'
+    target: '14'
+
+  - source: '13'
+    target: '12'
+  - source: '13'
+    target: '17'
+
+  - source: '14'
+    target: '12'
+  - source: '14'
+    target: '16'
+
+  - source: '15'
+    target: '11'
+  - source: '15'
+    target: '16'
+
+  - source: '16'
+    target: '14'
+  - source: '16'
+    target: '15'
+  - source: '16'
+    target: '18'
+
+  - source: '17'
+    target: '5'
+  - source: '17'
+    target: '13'
+
+  - source: '18'
+    target: '16'
+  - source: '18'
+    target: '38'
+
+  - source: '20'
+    target: '2'
+
+  - source: '21' # 敌方区域
+    target: '22'
+#    mov_distance: 10
+#    attack_distance: 5
+  - source: '21'
+    target: '23'
+
+  - source: '21'
+    target: '24' # 此处虽然在几何上并不相连，但实在是挨得太近了
+
+  - source: '22'
+    target: '21'
+
+  - source: '22'
+    target: '23'
+
+
+  - source: '22'
+    target: '24'
+
+  - source: '22'
+    target: '25'
+
+  - source: '23'
+    target: '21'
+
+  - source: '23'
+    target: '22'
+
+  - source: '23'
+    target: '24'
+
+  - source: '23'
+    target: '26'
+
+  - source: '24'
+    target: '21'
+
+  - source: '24'
+    target: '22'
+
+  - source: '24'
+    target: '23'
+
+  - source: '24'
+    target: '29'
+
+  - source: '25'
+    target: '22'
+
+  - source: '25'
+    target: '37'
+
+  - source: '26'
+    target: '23'
+  - source: '26'
+    target: '27'
+  - source: '26'
+    target: '28'
+
+  - source: '27'
+    target: '26'
+
+  - source: '28'
+    target: '26'
+
+  - source: '29'
+    target: '24'
+  - source: '29'
+    target: '30'
+  - source: '29'
+    target: '31'
+
+  - source: '30'
+    target: '29'
+
+  - source: '31'
+    target: '29'
+  - source: '31'
+    target: '35'
+
+  - source: '32'
+    target: '33'
+  - source: '32'
+    target: '34'
+
+  - source: '33'
+    target: '32'
+  - source: '33'
+    target: '37'
+
+  - source: '34'
+    target: '32'
+  - source: '34'
+    target: '36'
+
+  - source: '35'
+    target: '31'
+  - source: '35'
+    target: '36'
+
+  - source: '36'
+    target: '34'
+  - source: '36'
+    target: '35'
+  - source: '36'
+    target: '38'
+
+  - source: '37'
+    target: '25'
+  - source: '37'
+    target: '33'
+
+  - source: '38'
+    target: '36'
+  - source: '38'
+    target: '18'
+
+  - source: '40'
+    target: '22'
+
+
+attack_edges:
+  - source: '4'
+    target: '5'
+  - source: '4'
+    target: '7'
+  - source: '4'
+    target: '9'
+  - source: '4'
+    target: '10'
+  - source: '4'
+    target: '17'
+
+  - source: '7'
+    target: '9'
+  - source: '7'
+    target: '15'
+  - source: '7'
+    target: '16'
+  - source: '7'
+    target: '18'
+  - source: '7'
+    target: '4'
+  - source: '7'
+    target: '9'
+  - source: '7'
+    target: '10'
+  - source: '7'
+    target: '11'
+
+  - source: '8'
+    target: '1'
+  - source: '8'
+    target: '2'
+  - source: '8'
+    target: '4'
+  - source: '8'
+    target: '9'
+  - source: '8'
+    target: '11'
+  - source: '8'
+    target: '12'
+  - source: '8'
+    target: '14'
+  - source: '8'
+    target: '15'
+  - source: '8'
+    target: '16'
+  - source: '8'
+    target: '18'
+  - source: '8'
+    target: '33'
+  - source: '8'
+    target: '37'
+
+  - source: '6'
+    target: '4'
+  - source: '6'
+    target: '9'
+  - source: '6'
+    target: '11'
+  - source: '6'
+    target: '14'
+  - source: '6'
+    target: '15'
+  - source: '6'
+    target: '16'
+  - source: '6'
+    target: '18'
+  - source: '6'
+    target: '33'
+  - source: '6'
+    target: '37'
+  - source: '6'
+    target: '38'
+
+
+  - source: '9'
+    target: '7'
+
+  - source: '4'
+    target: '10'
+# 有 '-' 代表列表， 无则代表字典
+#"""
+#1. 个人感觉赛场地形比较复杂，各个区域有比较复杂的几何和连通性质，一个区域覆盖的面积也比较大，
+#   不清楚当前的拓扑图是否能满足决策算法的要求
+#2. 同名区域命名问题。有些区域在图例中同名，事先约定好有利于后续建图和决策。
+#"""
