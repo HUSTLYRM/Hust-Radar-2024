@@ -13,7 +13,7 @@ class Message:
     def get_crc16_check_byte(data):
         crc = 0xffff
         for byte in data:
-            crc = ((crc >> 8) ^ Messager5 .CRC16_TABLE[(crc ^ byte & 0xff) & 0xff])
+            crc = ((crc >> 8) ^ Messager .CRC16_TABLE[(crc ^ byte & 0xff) & 0xff])
         return crc
 
     @staticmethod

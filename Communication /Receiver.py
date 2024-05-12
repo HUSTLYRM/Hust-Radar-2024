@@ -32,6 +32,21 @@ class Receiver:
         else:
             return -1,False
 
+    # 读取cmd_id
+    def read_cmd_id(self):
+        cmd_id = self.ser.read(2)
+        return struct.unpack('H', cmd_id)
+
+    # 读取data
+    def read_data(self,data_length):
+        data = self.ser.read(data_length)
+        return data
+
+    # 读取frame_tail
+    def read_frame_tail(self):
+        frame_tail = self.ser.read(2)
+        return frame_tail
+
 
 
 
@@ -40,30 +55,9 @@ class Receiver:
     # 找到0x0305
     def parse_0x0305(self):
         # 找到SOF
-        if not self.find_sof():
-            return False
 
-        # 读取帧头（SOF之后的4字节）
-        header = self.ser.read(4)
-        # print(header)
-        data_length, seq, crc8 = struct.unpack('<HBB', header)
+        data_length , is_valid = self.parse_frame_header()
 
-
-        # 根据data_length读取data和frame_tail
-        data_and_tail = self.ser.read(2+data_length + 2)  # 包括命令码和CRC16
-
-        # 解析出命令码和数据内容
-        cmd_id = struct.unpack('H',data_and_tail[:2])
-        if cmd_id[0] == 773:
-            data = data_and_tail[2:-2]
-
-            carid =struct.unpack('H',data[:2])
-            x= struct.unpack('f', data[2:6])
-            y = struct.unpack('f', data[6:])
-            print("carId:",carid,"x:",x,"y:",y)
-
-
-        # print(cmd_id)
 
 
 
