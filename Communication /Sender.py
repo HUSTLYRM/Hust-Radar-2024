@@ -5,7 +5,7 @@ import struct
 from ruamel.yaml import YAML
 import time
 class Sender:
-    def __init__(self , cfg, port = '/dev/ttyUSB0'):
+    def __init__(self , cfg):
         # 我方颜色
         self.my_color = cfg['global']['my_color']
 
@@ -17,9 +17,9 @@ class Sender:
             self.my_id = 109
             self.my_sentinel_id = 107
             self.enemy_sentinel_id = 7
-        self.port = port
-        self.bps = 115200
-        self.timex = 0.5
+        self.port = cfg['communication']['port']
+        self.bps = cfg['communication']['bps']
+        self.timex = cfg['communication']['timex']
         # self.SOF = b'\xA5'
         self.SOF = struct.pack('B',0xa5)
         self.seq = 0  # 目前均为单包数据，且无重发机制?
@@ -343,7 +343,7 @@ if __name__ == '__main__':
 
     while True:
         # 循环列表，x在[10,20]之间变化，每次变化0.1 8819.32mm,5706.98mm
-        for i in range(0,3`000):
+        for i in range(0,3000):
             sender.send_enemy_location(3,0.1,0.1)
             time.sleep(0.1)
             if i <=600:

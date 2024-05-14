@@ -3,8 +3,11 @@ import struct
 import time
 
 class Receiver:
-    def __init__(self,portx = '/dev/ttyUSB0'):
-        self.ser = serial.Serial(portx, 115200, timeout=0.5)
+    def __init__(self,cfg):
+        self.port = cfg['communication']['port']
+        self.bps = cfg['communication']['bps']
+        self.timex = cfg['communication']['timex']
+        self.ser = serial.Serial(self.port, self.bps, timeout=self.timex)
         self.CRC8_TABLE = [
             0x00, 0x5e, 0xbc, 0xe2, 0x61, 0x3f, 0xdd, 0x83, 0xc2, 0x9c, 0x7e, 0x20, 0xa3, 0xfd, 0x1f, 0x41,
             0x9d, 0xc3, 0x21, 0x7f, 0xfc, 0xa2, 0x40, 0x1e, 0x5f, 0x01, 0xe3, 0xbd, 0x3e, 0x60, 0x82, 0xdc,
@@ -72,6 +75,20 @@ class Receiver:
             crc = self.CRC8_TABLE[crc_index]
         return crc
 
+    # 判断crc8是否正确，传入不含crc8的帧头部分和crc8
+    def check_crc8(self,tx_buff,crc8):
+        crc8_cal = self.get_crc8_check_byte(tx_buff)
+        return crc8 == crc8_cal
+
+    # 判断crc16是否正确，传入不含crc16的帧头部分和crc16
+    def check_crc16(self,tx_buff,crc16):
+        crc16_cal = self.get_crc16_check_byte(tx_buff)
+        return crc16 == crc16_cal
+
+    # 将帧头，cmd_id , data合成用来计算crc16的数据
+    def get_tx_buff_to_cal_crc16(self,header,cmd_id,data):
+        return header + struct.pack('H',cmd_id) + data
+
     # 定位帧头
     def find_sof(self):
         # 读取单个字节直至找到SOF
@@ -91,15 +108,16 @@ class Receiver:
         # 读取帧头（SOF之后的4字节）
         header = self.ser.read(4)
         data_length, seq, crc8 = struct.unpack('<HBB', header)
+        # 把SOF加回去，获得完整帧头
+        full_header = struct.pack('B', 165) + header
 
         # 校验crc8是否正确
         _header = struct.pack('B', 165) + struct.pack('H', data_length) + struct.pack('B', seq)
-        crc8_cal = self.get_crc8_check_byte(_header)
-        if crc8 == crc8_cal:
-            return data_length, True
+        if self.check_crc8(_header,crc8):
+            return data_length, True , full_header
         else:
             # print("check fail")
-            return -1,False
+            return -1,False , full_header
 
     # 读取cmd_id
     def read_cmd_id(self):
@@ -116,13 +134,13 @@ class Receiver:
         frame_tail = self.ser.read(2)
         return frame_tail
 
-        # 读取剩余比赛时间
+    # 读取剩余比赛时间 , 返回是否可信，剩余时间
     def read_remaining_time(self):
         # 解析出data_length, 检查CRC8
-        data_length, is_valid = self.parse_frame_header()
+        data_length, is_valid  , header= self.parse_frame_header()
         if not is_valid:
             print("Frame header CRC8 check failed")
-            return False
+            return False ,0
 
         # 读取cmd_id
         cmd_id = self.read_cmd_id()
@@ -135,14 +153,74 @@ class Receiver:
             print(f"Remaining time: {remaining_time}")
             self.read_frame_tail()
 
-            return True
+            return True , remaining_time
         else:
             # print(f"Unknown cmd_id: {cmd_id}")
             # 514是0x
 
             return False
 
-    # 0201
+    # 解析帧头和cmd_id , 所有的东西都需要保留下来，因为要用来计算crc16
+    def parse_cmd_id(self):
+
+        while True:
+
+            data_length, is_valid , header = self.parse_frame_header()
+            if not is_valid:
+                print("Frame header CRC8 check failed")
+                continue
+
+            rest_data = self.ser.read(2+data_length+2) # 包括命令码和CRC16
+
+            # 重构帧头+命令码+数据以计算crc16
+            tx_buff = header + rest_data[:-2]
+
+            # 计算帧尾是否正确
+            frame_tail_ori = rest_data[-2:]
+
+
+            if not self.check_crc16(tx_buff , frame_tail_ori):
+                print("CRC16 check failed")
+                continue
+
+            cmd_id = rest_data[:2] # 读取命令码
+            data = rest_data[2:-2] # 读取数据
+
+            # 处理不同的命令
+            self.switch_method(cmd_id,data)
+
+    # 调用这个函数来处理不同的命令
+    def switch_method(self, cmd_id, data):
+        cmd_id_value = struct.unpack('<H', cmd_id)[0]
+        if cmd_id_value == 0x0001: # 比赛进行时间解析
+            self.parse_game_status(data)
+        elif cmd_id_value == 0x0003:
+            self.parse_robot_status(data)
+        elif cmd_id_value == 0x020C:
+            self.parse_mark_process(data)
+        elif cmd_id_value == 0x020E:
+            self.parse_double_effect_chance(data)
+        # Add conditions for other cmd_ids
+
+
+    # 比赛进行时间时间解析
+    def process_game_status(self,data):
+        pass
+
+    # 己方机器人血量信息
+    def parse_robot_status(self,data):
+        pass
+
+    # 标记进度
+    def parse_mark_process(self,data):
+        pass
+
+    # 自主决策信息，是否拥有双倍易伤机会
+    def parse_double_effect_chance(self,data):
+        pass
+
+
+
 
 
 
@@ -225,11 +303,11 @@ def parse_frame(self,serial_port):
 
 # 打开串口
 
-receiver = Receiver()
-# 读取串口数据
-while True:
-    receiver.read_remaining_time()
-    # time.sleep(0.1)
+# receiver = Receiver()
+# # 读取串口数据
+# while True:
+#     receiver.read_remaining_time()
+#     # time.sleep(0.1)
 
 
 
