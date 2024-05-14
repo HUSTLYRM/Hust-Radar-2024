@@ -166,10 +166,11 @@ port_list = list(serial.tools.list_ports.comports())
 if len(port_list) == 0:
     print('无可用串口')
 else:
+    print(len(port_list))
     for i in range(0, len(port_list)):
         print(port_list[i])
 
-ser = serial_init('/dev/pts/3')
+ser = serial_init('/dev/ttyUSB0')
 while True:
-    send_enemy_location(ser, 105, 10.1, 12.2)
-    time.sleep(1)
+    send_enemy_location(ser, 101, 9.1, 5.2)
+    # time.sleep(1)

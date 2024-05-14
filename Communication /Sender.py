@@ -5,7 +5,7 @@ import struct
 from ruamel.yaml import YAML
 import time
 class Sender:
-    def __init__(self , cfg, port = '/dev/pts/3'):
+    def __init__(self , cfg, port = '/dev/ttyUSB0'):
         # 我方颜色
         self.my_color = cfg['global']['my_color']
 
@@ -23,6 +23,7 @@ class Sender:
         # self.SOF = b'\xA5'
         self.SOF = struct.pack('B',0xa5)
         self.seq = 0  # 目前均为单包数据，且无重发机制?
+        self.double_effect_times = 0
         self.ser = self.serial_init()
         self.CRC8_TABLE = [
             0x00, 0x5e, 0xbc, 0xe2, 0x61, 0x3f, 0xdd, 0x83, 0xc2, 0x9c, 0x7e, 0x20, 0xa3, 0xfd, 0x1f, 0x41,
@@ -154,7 +155,7 @@ class Sender:
 
         _SOF = self.SOF
         _data_length = struct.pack('H', data_length)
-        print(_data_length)
+        # print(_data_length)
         _seq = struct.pack('B', self.seq)
         _frame_header =  _SOF + _data_length + _seq
         frame_header = _frame_header + struct.pack('B', self.get_crc8_check_byte(_frame_header))
@@ -223,8 +224,8 @@ class Sender:
     def generate_sentinel_alert_info(self , carID , distance , quadrant):
         cmd_id = struct.pack('H', 0x0301)
         data_cmd_id = struct.pack('H', 0x0201)
-        sender_id = struct.pack('H', self.my_id)
-        receiver_id = struct.pack('H', self.my_sentinel_id)
+        sender_id = struct.pack('H', 109)
+        receiver_id = struct.pack('H', 101)
         data = data_cmd_id + sender_id + receiver_id + struct.pack('H', carID) + struct.pack('f', distance) + struct.pack('H', quadrant)
         data_len = len(data)
         frame_head = self.get_frame_header(data_len)
@@ -235,7 +236,13 @@ class Sender:
 
         tx_buff += frame_tail
 
+        print(tx_buff)
+
         return tx_buff
+
+    # 机器人交互数据0x0301共通部分，后面的方法是data_cmd_id的不同
+    def generate_robot_interact_info(self):
+        pass
 
     # (1)发送哨兵预警角信息 , 调用方法
     def send_sentinel_alert_info(self , carID , distance , quadrant):
@@ -275,6 +282,31 @@ class Sender:
 
         self.send_info(tx_buff)
 
+    # （3）组织雷达自主决策信息,中间方法
+    def generate_radar_double_effect_info(self , times = 1):
+        cmd_id = struct.pack('H', 0x0301)
+        data_cmd_id = struct.pack('H', 0x0121)
+        sender_id = struct.pack('H', self.my_id)
+        receiver_id = struct.pack('H', 0x8080)
+        times_data = struct.pack('H',times)
+        data = data_cmd_id + sender_id + receiver_id + times_data
+
+        data_len = len(data)
+        frame_head = self.get_frame_header(data_len)
+
+        tx_buff = frame_head + cmd_id + data
+
+        frame_tail = self.get_frame_tail(tx_buff)
+
+        tx_buff += frame_tail
+
+        return tx_buff
+
+    # (3) 发送雷达自主决策信息,调用方法
+    def send_radar_double_effect_info(self,times = 1):
+        tx_buff =  self.generate_radar_double_effect_info(times)
+        self.send_info(tx_buff)
+
 
     # 发送机器人交互数据0x0301
     '''
@@ -308,10 +340,19 @@ if __name__ == '__main__':
     main_cfg = YAML().load(open(main_cfg_path, 'r'))
 
     sender = Sender(main_cfg)
+
     while True:
         # 循环列表，x在[10,20]之间变化，每次变化0.1 8819.32mm,5706.98mm
-        sender.send_enemy_location(1, 27, 14)
-        time.sleep(0.1)
+        for i in range(0,3`000):
+            sender.send_enemy_location(3,0.1,0.1)
+            time.sleep(0.1)
+            if i <=600:
+                sender.send_radar_double_effect_info(0)
+            if i > 600:
+                sender.send_radar_double_effect_info(1)
+
+
+
 
 
         # print()
