@@ -42,40 +42,81 @@ class Detector:
         self.loop_times = 0
 
         # 多线程操作
+        # 多线程操作
+        self.threading = None
+        self.working_flag = False
+        self.init_flag = False
         # 初始化锁对象和结果列表
         self._result_lock = threading.Lock()
         self._results = []
 
+    # 创建线程
+    def create(self, capture):
+        if not self.init_flag:
+            self.threading = threading.Thread(target=self.detect_thread, args=(capture,), daemon=True)
+            self.init_flag = True
 
+    # 启动线程
+    def start(self):
+        if self.init_flag:
+            print("detect start function")
+            self.working_flag = True  # 先设True再开始，否则开始太快检测为False直接结束了
+            self.threading.start()
+
+    # 关闭线程
+    def stop(self):
+        if self.init_flag:
+            print("detect stop")
+            self.working_flag = False
+            self.threading.join()
+
+    # 清除
+    def release(self):
+        self.model_car = None
+        self.model_car2 = None
+        self.tracker_path = None
+        self.stage_one_conf = None
+        self.stage_two_conf = None
+        self.life_time = None
+        self.labels = None
+        self.class_num = None
+        self.Track_value = None
+        self.id_candiate = None
+        self.loop_times = None
+        self.threading = None
+        self.working_flag = None
+        self.init_flag = None
+        self._result_lock = None
+        self._results = None
 
     # 二阶段分类推理Classify
-    def classify_infer(self, frame, box): # 输入原图和box, 返回分类结果
+    def classify_infer(self, roi_list): # 输入原图和box, 返回分类结果
 
-        x, y, w, h = box
 
-        x_left = x - w / 2
-        y_left = y - h / 2
-
-        roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
-
-        # 展示frame的尺寸
-        # print(roi.shape)
-
-        # cv2.resize(roi, (224,224)) # openvino需要
-        results = self.model_car2.predict(roi, conf=0.5, iou=0.7 , device = 0 ,verbose = False  )
-        maxConf = -1
-        label = -1
+        
+        results = self.model_car2.predict(roi_list, conf=0.5, iou=0.7 , device = 0 ,verbose = True  )
         if len(results) == 0:  # no detect
             return -1
+
+        label_list = []
+        conf_list = []
+
         for result in results:
             data = result.boxes.data
+            maxConf = -1
+            label = -1
+            index = -1
             for i in range(len(data)):
                 if data[i][4] > maxConf:
                     maxConf = data[i][4]
                     label = data[i][5]
+                    index = i
+            label_list.append(int(label))
+            conf_list.append(float(maxConf))
+            
 
 
-        return int(label), maxConf
+        return label_list,conf_list
 
 
     # 一阶段追踪推理
@@ -117,10 +158,10 @@ class Detector:
 
     # 总的推理
     def infer(self, frame): # 输入原图，返回推理结果
-
+        print("infer")
         # frame判空
         if frame is None:
-            # print("No frame!")
+            print("No frame!")
             return None , None
 
         # # 展示frame的尺寸
@@ -128,13 +169,15 @@ class Detector:
 
 
         # 获取推理结果
+        print("track_infer")
         results = self.track_infer(frame)
+        print("after track")
 
 
 
         # 一阶段results判空
         if self.is_results_empty(results):
-            # print("No results!")
+            print("No results!")
             return frame , None
 
 
@@ -144,7 +187,11 @@ class Detector:
         confidences, boxes, track_ids = self.parse_results(results) # 可以不要
         zip_results = [] # 最终返回存储追踪器的结果，有box, 分类id, conf
 
-        index = 0
+
+        roi_list = []
+        id_list = []
+        box_list = []
+
 
         for box, track_id, conf in zip(boxes, track_ids, confidences):
 
@@ -153,9 +200,31 @@ class Detector:
                 for i in range(12):
                     self.Track_value[int(track_id)][i] = math.floor(self.Track_value[int(track_id)][i] / 15)
 
+            # 获取二阶段roi_batch
             x,y,w,h = box
+            x_left = x - w / 2
+            y_left = y - h / 2
+            roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
+            roi_list.append(roi)
 
-            classify_label,conf = self.classify_infer(frame,box)
+            # 获取track_id的列表
+            id_list.append(track_id)
+            # 获取boxes列表
+            box_list.append(box)
+        print("to_infer")
+        label_list,conf_list = self.classify_infer(roi_list)
+
+
+        index = 0
+        for i in range(len(roi_list)):
+
+            classify_label = label_list[i]
+            conf = conf_list[i]
+            track_id = id_list[i]
+            box = box_list[i]
+            x,y,h,w = box
+
+            # classify_label,conf = self.classify_infer(frame,box)
 
             # 二阶段识别次数和置信度的加权
             if classify_label != -1:
@@ -187,8 +256,8 @@ class Detector:
 
             # 判断是否所有类别的计数器都一样，如果一样，说明没有识别出来，返回NULL
             same = True
-            for i in range(self.class_num-1):
-                if pd != self.Track_value[int(track_id)][i + 1]:
+            for j in range(self.class_num - 1):
+                if pd != self.Track_value[int(track_id)][j + 1]:
                     same = False
                     break
 
@@ -217,6 +286,7 @@ class Detector:
             zip_results.append([xyxy_box, xywh_box , track_id , label ])
 
             self.id_candidate[track_id] = index
+
             index = index + 1
 
         for box in draw_candidate:
@@ -246,6 +316,7 @@ class Detector:
 
                 if infer_result is not None:
                     with self._result_lock:
+                        print("update detect result")
                         self._results = infer_result  # 更新结果列表
 
 
@@ -253,7 +324,7 @@ class Detector:
 
         # 方法，来源于主线程调取最新的结果
     def get_results(self):
-        with self._result_lock:
+        with self._result_lock: # TODO:把锁去掉了,否则更新结果那里一直在等待锁,想个办法解决
             return self._results  # 返回最新的结果列表
 
 

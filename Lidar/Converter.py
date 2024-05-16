@@ -36,6 +36,7 @@ array([[x1, y1, z1],
        ...,
        [xn, yn, zn]])
 '''
+import cupy as cp
 import numpy as np
 import open3d as o3d
 import cv2
@@ -92,17 +93,22 @@ class Converter:
         self.std_ratio = data_loader['filter']['std_ratio']
         self.voxel_size = data_loader['filter']['voxel_size']
         # 相机坐标系到图像坐标系的内参矩阵，3*3的矩阵
-        self.intrinsic_matrix = np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]])
+        self.intrinsic_matrix = cp.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]])
         # 图像坐标系到相机坐标系的内参矩阵，3*3的矩阵
-        self.intrinsic_matrix_inv = np.linalg.inv(self.intrinsic_matrix)
+        self.intrinsic_matrix_inv = cp.linalg.inv(self.intrinsic_matrix)
         # 激光雷达到相机的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
-        self.extrinsic_matrix = np.hstack((self.R, self.T))
-        self.extrinsic_matrix = np.vstack((self.extrinsic_matrix, [0, 0, 0, 1]))
+        self.extrinsic_matrix = cp.hstack((self.R, self.T))
+        self.extrinsic_matrix = cp.vstack((self.extrinsic_matrix, [0, 0, 0, 1]))
         # 相机到激光雷达的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
-        self.extrinsic_matrix_inv = np.linalg.inv(self.extrinsic_matrix)
+        self.extrinsic_matrix_inv = cp.linalg.inv(self.extrinsic_matrix)
         print(self.extrinsic_matrix)
         print(self.intrinsic_matrix)
-
+    # 从numpy转到cupy
+    def np2cp(self, np_array):
+        return cp.array(np_array)
+    # 从cupy转到numpy
+    def cp2np(self, cp_array):
+        return cp.asnumpy(cp_array)
 
     # 把open3d的pcd格式的点云的points修改为pc
     def update_pcd(self, pcd, pc):
@@ -118,11 +124,16 @@ class Converter:
         # 激光雷达坐标系下的点云转换到相机坐标系下,传入的是一个open3d的pcd格式的点云，在里面直接修改pcd的points属性,返回修改好的pcd
         # 从open3d的pcd格式的点云中提取点云的坐标
         pc = self.get_points(pcd)
+        # 从numpy变为cupy
+        pc = self.np2cp(pc)
         # Add a column of ones to the points
-        pc = np.hstack((pc, np.ones((pc.shape[0], 1))))
-        pc = np.dot(pc, self.extrinsic_matrix.T)
+        pc = cp.hstack((pc, np.ones((pc.shape[0], 1))))
+        pc = cp.dot(pc, self.extrinsic_matrix.T)
         # 提取前三列
         pc = pc[:, :3]
+        # 从cupy变为numpy
+        pc = self.cp2np(pc)
+
         self.update_pcd(pcd, pc)
 
     # 展示点云的基本信息,x,y,z的范围
@@ -141,24 +152,34 @@ class Converter:
     def camera_to_lidar(self, pcd): # 对pcd直接修改，不用返回
         # 相机坐标系下的点云转换到激光雷达坐标系下
         pc = self.get_points(pcd)
+        pc = self.np2cp(pc)
         # Add a column of ones to the points
-        pc = np.hstack((pc, np.ones((pc.shape[0], 1))))
-        pc = np.dot(pc, self.extrinsic_matrix_inv.T)
+        pc = cp.hstack((pc, np.ones((pc.shape[0], 1))))
+        pc = cp.dot(pc, self.extrinsic_matrix_inv.T)
         # 提取前三列
         pc = pc[:, :3]
+        pc = self.cp2np(pc)
         self.update_pcd(pcd, pc)
 
 
     def camera_to_image(self, pcd): # 传入的是一个open3d的pcd格式的点云，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
         # 相机坐标系下的点云批量乘以内参矩阵，得到图像坐标系下的u,v和z,类似于深度图的生成
         pc = self.get_points(pcd)
-        xyz = np.dot(pc, self.intrinsic_matrix.T) # 得到的uvz是一个n*3的矩阵，n是点云的数量，是np.array格式的
+        # 从numpy变为cupy
+        pc = self.np2cp(pc)
+
+
+
+        xyz = cp.dot(pc, self.intrinsic_matrix.T) # 得到的uvz是一个n*3的矩阵，n是点云的数量，是np.array格式的
         # 之前深度图没正确生成是因为没有提取z出来，导致原来的uv错误过大了
         # 要获得u,v,z，需要将xyz的第三列除以第三列
-        uvz = np.zeros(xyz.shape)
+        uvz = cp.zeros(xyz.shape)
         uvz[:, 0] = xyz[:, 0] / xyz[:, 2]
         uvz[:, 1] = xyz[:, 1] / xyz[:, 2]
         uvz[:, 2] = xyz[:, 2]
+
+        # 从cupy变为numpy
+        uvz = self.cp2np(uvz)
 
 
         return uvz
@@ -197,11 +218,20 @@ class Converter:
     # 传入一个点云，选取距离的中值点
     def get_center_mid_distance(self, pcd):
         pc = self.get_points(pcd)
+
+
+
+        # 判空
+        if len(pc) == 0:
+            return [0,0,0]
+
+        pc = self.np2cp(pc)
         # 计算每个点的距离
-        distances = np.linalg.norm(pc, axis=1)
+        distances = cp.linalg.norm(pc, axis=1)
         # 找到中值点的索引
-        center_idx = np.argsort(distances)[len(distances) // 2]
+        center_idx = cp.argsort(distances)[len(distances) // 2]
         center = pc[center_idx]
+        center = self.cp2np(center)
         return center
 
 
@@ -213,18 +243,22 @@ class Converter:
         print(box)
         # 提取像素坐标系下坐标
         uvz = self.camera_to_image(pcd)
+        # numpy到cupy
+        uvz = self.np2cp(uvz)
         # 提取u,v,z
         u = uvz[:, 0]
         v = uvz[:, 1]
         z = uvz[:, 2]
         # print("z",z)
         # 创建一个mask，标记落在矩形框中的点云,因为bitwise_and每次只能操作两个数组，所以需要分开操作
-        mask1 = np.bitwise_and(u >= min_u, u <= max_u)
-        mask2 = np.bitwise_and(v >= min_v, v <= max_v)
-        mask3 = np.bitwise_and(mask1, mask2)
-        mask = np.bitwise_and(mask3, z <= self.max_depth) # 滤除超出最大深度的点云
+        mask1 = cp.bitwise_and(u >= min_u, u <= max_u)
+        mask2 = cp.bitwise_and(v >= min_v, v <= max_v)
+        mask3 = cp.bitwise_and(mask1, mask2)
+        mask = cp.bitwise_and(mask3, z <= self.max_depth) # 滤除超出最大深度的点云
         # 获得落在矩形框中的点云的点云的index,pcd.points才是要筛选的点云
-        box_points = np.asarray(pcd.points)[mask]
+        box_points = cp.asarray(pcd.points)[mask]
+
+        box_points = self.cp2np(box_points)
 
 
         return box_points # 返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
@@ -250,38 +284,76 @@ class Converter:
         return new_pcd
 
     # 对点云进行DBSCAN聚类
-    def cluster(self,pcd): # 传入的是一个open3d的pcd格式的点云，返回的是一个numpy格式的点云和一个中心点，如果没有找到任何簇，返回一个空的np和中心点
-        # TODO:根据点云的距离来判断点云的稀疏程度，然后根据稀疏程度来调整eps和min_points
-        # 使用DBSCAN进行聚类
+    def cluster(self, pcd):
         with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
-            labels = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points, print_progress=self.print_cluster_progress))
-        # print("labels",labels)
-        # 如果没有找到任何簇，返回一个空的点云和中心点
-
-        if len(labels) == 0:
-            return np.array([]), np.array([0, 0, 0])
-        if labels.argmax() == -1:
+            labels_np = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points,
+                                                    print_progress=self.print_cluster_progress))
+        # Early return if labels_np is empty or all -1
+        if len(labels_np) == 0 or np.all(labels_np == -1):
             return np.array([]), np.array([0, 0, 0])
 
-        # 计算每个簇的大小
-        max_label = labels.max()
-        # print(f"point cloud has {max_label + 1} clusters")
-        cluster_sizes = [len(np.where(labels == i)[0]) for i in range(max_label + 1)]
+        # Convert NumPy arrays to CuPy arrays for GPU acceleration
+        labels = cp.asarray(labels_np)
+        pcd_points = cp.asarray(pcd.points)
 
-        # 判空
+        # Compute cluster sizes
+        max_label = labels.max().item()
+        cluster_sizes = cp.array([cp.sum(labels == i).item() for i in range(max_label + 1)])
+
+        # Early return if cluster_sizes is empty
         if len(cluster_sizes) == 0:
             return np.array([]), np.array([0, 0, 0])
 
-        # 找到最大簇的索引
-        max_cluster_idx = np.argmax(cluster_sizes)
+        # Find the index of the largest cluster
+        max_cluster_idx = cp.argmax(cluster_sizes)
 
-        # 找到最大簇的所有点
-        max_cluster_points = np.asarray(pcd.points)[np.where(labels == max_cluster_idx)]
+        # Find all points in the largest cluster
+        max_cluster_points = pcd_points[labels == max_cluster_idx]
 
-        # 计算最大簇的中心点
-        centroid = max_cluster_points.mean(axis=0)
+        # Compute the centroid of the largest cluster
+        centroid = cp.mean(max_cluster_points, axis=0)
 
-        return max_cluster_points, centroid # 返回的是一个numpy格式的点云和一个中心点,中心点为[x,y,z]
+        # Convert CuPy arrays back to NumPy arrays before returning
+        return max_cluster_points.get(), centroid.get()
+
+    # def cluster(self,pcd): # 传入的是一个open3d的pcd格式的点云，返回的是一个numpy格式的点云和一个中心点，如果没有找到任何簇，返回一个空的np和中心点
+    #     # TODO:根据点云的距离来判断点云的稀疏程度，然后根据稀疏程度来调整eps和min_points
+    #     # 使用DBSCAN进行聚类
+    #     with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+    #         labels = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points, print_progress=self.print_cluster_progress))
+    #     # print("labels",labels)
+    #     # 如果没有找到任何簇，返回一个空的点云和中心点
+    #
+    #     if len(labels) == 0:
+    #         return np.array([]), np.array([0, 0, 0])
+    #     if labels.argmax() == -1:
+    #         return np.array([]), np.array([0, 0, 0])
+    #
+    #     # 计算每个簇的大小
+    #     max_label = labels.max()
+    #     # print(f"point cloud has {max_label + 1} clusters")
+    #     cluster_sizes = [len(np.where(labels == i)[0]) for i in range(max_label + 1)]
+    #
+    #     # 判空
+    #     if len(cluster_sizes) == 0:
+    #         return np.array([]), np.array([0, 0, 0])
+    #
+    #
+    #
+    #
+    #     # 找到最大簇的索引
+    #     max_cluster_idx = cp.argmax(cp.asarray(cluster_sizes))
+    #
+    #     # 将pcd.points转为cupy数组
+    #     pc = cp.asarray(pcd.points)
+    #
+    #     # 找到最大簇的所有点
+    #     max_cluster_points = pc[cp.asarray(labels) == max_cluster_idx]
+    #
+    #     # 计算最大簇的中心点
+    #     centroid = cp.mean(max_cluster_points, axis=0)
+    #
+    #     return max_cluster_points.get(), centroid.get() # 返回的是一个numpy格式的点云和一个中心点,中心点为[x,y,z]
 
     # 对传入点云进行滤波去除离群点和噪声点
     def remove_outliers(self, pcd):
@@ -306,6 +378,7 @@ class Converter:
 
     # 求一个点[x,y,z]的距离
     def get_distance(self, point):
+        point = np.array(point)
         return np.sqrt(np.sum(point ** 2))
 
     # 传入相机坐标系的点云[x,y,z]，返回赛场坐标系的点云[x,y,z]，TODO:完成方法

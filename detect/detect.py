@@ -1,5 +1,5 @@
 from Capture import Capture
-from Detector import Detector
+from Detector_backup import Detector
 from Video import Video
 import cv2
 import time
