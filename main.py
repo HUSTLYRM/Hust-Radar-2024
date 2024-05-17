@@ -165,10 +165,11 @@ if __name__ == '__main__':
                         new_xyxy_box = [xywh_box[0] - new_w / 2, xywh_box[1] - new_h / 2, xywh_box[0] + new_w / 2, xywh_box[1] + new_h / 2]
 
                         # 获取检测框内numpy格式pc
-                        box_pc = converter.get_points_in_box(pcd_all, new_xyxy_box)
+                        box_pc = converter.get_points_in_box(pcd_all.points, new_xyxy_box)
 
                         # 如果没有获取到点，直接continue
                         if len(box_pc) == 0:
+                            print("no points in box")
                             continue
 
 
@@ -251,14 +252,53 @@ if __name__ == '__main__':
             # 画线
             for my_car_info in my_car_infos:
                 my_car_id , my_center_xy , my_camera_xyz , my_field_xyz , my_color = my_car_info
-                for enemy_car_info in enemy_car_infos:
-                    enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color = enemy_car_info
-                    # 计算距离
-                    distance = np.linalg.norm(np.array(my_field_xyz) - np.array(enemy_field_xyz))
-                    # 画线
-                    cv2.line(result_img, (int(my_center_xy[0]), int(my_center_xy[1])), (int(enemy_center_xy[0]), int(enemy_center_xy[1])), (0, 255, 122), 2)
-                    # 写距离
-                    cv2.putText(result_img, "distance: {:.2f}".format(distance), (int((my_center_xy[0] + enemy_center_xy[0]) / 2), int((my_center_xy[1] + enemy_center_xy[1]) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                # 将相机的xyz坐标点投影到图像上，并画一个红色的点
+                my_camera_xyz = my_camera_xyz.reshape(1, -1)
+                my_reprojected_point = converter.camera_to_image(my_camera_xyz)[0] # u,v是图像坐标系下的坐标
+                cv2.circle(result_img, (int(my_reprojected_point[0]), int(my_reprojected_point[1])), 5, (0, 0, 255), -1)
+                if my_car_id == carList.sentinel_id:
+                    # 记录符合距离要求的距离最近的车
+                    min_distance_car_id = -1
+                    min_distance = 1000
+                    min_distance_angle = -1
+                    for enemy_car_info in enemy_car_infos:
+                        enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color = enemy_car_info
+                        # 将相机的xyz坐标点投影到图像上，并画一个红色的点
+                        enemy_camera_xyz = enemy_camera_xyz.reshape(1, -1)
+                        enemy_reprojected_point = converter.camera_to_image(enemy_camera_xyz)[0]  # u,v是图像坐标系下的坐标
+                        # 计算距离
+                        distance = np.linalg.norm(np.array(my_field_xyz) - np.array(enemy_field_xyz))
+                        cv2.circle(result_img, (int(enemy_reprojected_point[0]), int(enemy_reprojected_point[1])), 5,
+                                   (0, 0, 255), -1)
+                        # 画线,从我方车辆中心点到敌方车辆中心点
+                        cv2.line(result_img, (int(my_reprojected_point[0]), int(my_reprojected_point[1])),
+                                 (int(enemy_reprojected_point[0]), int(enemy_reprojected_point[1])), (0, 255, 122), 2)
+                        # 写距离
+                        cv2.putText(result_img, "distance: {:.2f}".format(distance), (
+                            int((my_center_xy[0] + enemy_center_xy[0]) / 2),
+                            int((my_center_xy[1] + enemy_center_xy[1]) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
+                                    (0, 255, 122),
+                                    2)
+                        # 判断距离是否符合
+                        if distance < carList.sentinel_min_alert_distance or distance > carList.sentinel_max_alert_distance:
+                            continue
+
+                        if distance < min_distance:
+                            # 计算角度，设赛场x轴正方向为0度，顺时针为正
+                            angle = np.arctan2(enemy_field_xyz[1] - my_field_xyz[1], enemy_field_xyz[0] - my_field_xyz[0]) * 180 / np.pi
+                            min_distance = distance
+                            min_distance_angle = angle
+                            min_distance_car_id = enemy_car_id
+                    # 在哨兵重投影点上写上最近预警车辆的id，距离和角度
+                    if min_distance_car_id != -1:
+                        cv2.putText(result_img, "id: {}".format(min_distance_car_id), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                        cv2.putText(result_img, "distance: {:.2f}".format(min_distance), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) + 10), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                        cv2.putText(result_img, "angle: {:.2f}".format(min_distance_angle), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) + 30), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                        # 将角度转为象限 ， carID , distance , quadrant
+                        quadrant = converter.angle_to_quadrant(min_distance_angle)
+                        # zip
+                        sentinel_alert_info = [min_distance_car_id, min_distance, quadrant]
+                        messager.update_sentinel_alert_info(sentinel_alert_info)
 
 
 
