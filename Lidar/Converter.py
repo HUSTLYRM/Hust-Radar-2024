@@ -39,6 +39,8 @@ array([[x1, y1, z1],
 import cupy as cp
 import numpy as np
 import open3d as o3d
+from camera_locator.anchor import Anchor
+from camera_locator.point_picker import PointsPicker
 import cv2
 import yaml
 
@@ -67,10 +69,14 @@ class Converter:
     #     self.extrinsic_matrix = np.array([[R[0, 0], R[0, 1], R[0, 2], T[0]], [R[1, 0], R[1, 1], R[1, 2], T[1]], [R[2, 0], R[2, 1], R[2, 2], T[2]], [0, 0, 0, 1]])
     #     # 相机到激光雷达的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
     #     self.extrinsic_matrix_inv = np.linalg.inv(self.extrinsic_matrix) # 相机到激光雷达的外参矩阵的逆矩阵，自动生成的，得检查一下
-    def __init__(self, data_loader_path = 'parameters.yaml'):
+    def __init__(self, my_color ,data_loader_path = 'parameters.yaml' ):
         # 传入data_loader路径,用data_loader初始化类
         with open(data_loader_path, 'r') as file:
             data_loader = yaml.safe_load(file)
+        self.left_up = data_loader['field'][my_color]['left_up']
+        self.left_down = data_loader['field'][my_color]['left_down']
+        self.right_down = data_loader['field'][my_color]['right_down']
+        self.right_up = data_loader['field'][my_color]['right_up']
         # 获取R和T，并将它们转换为NumPy数组
         self.R = np.array(data_loader['calib']['extrinsic']['R']['data']).reshape(
             (data_loader['calib']['extrinsic']['R']['rows'], data_loader['calib']['extrinsic']['R']['cols']))
@@ -92,6 +98,8 @@ class Converter:
         self.nb_neighbors = data_loader['filter']['nb_neighbors']
         self.std_ratio = data_loader['filter']['std_ratio']
         self.voxel_size = data_loader['filter']['voxel_size']
+        # 去畸变参数
+        self.distortion_matrix = np.array(data_loader['calib']['distortion']['data'])
         # 相机坐标系到图像坐标系的内参矩阵，3*3的矩阵
         self.intrinsic_matrix = cp.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]])
         # 图像坐标系到相机坐标系的内参矩阵，3*3的矩阵
@@ -101,8 +109,56 @@ class Converter:
         self.extrinsic_matrix = cp.vstack((self.extrinsic_matrix, [0, 0, 0, 1]))
         # 相机到激光雷达的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
         self.extrinsic_matrix_inv = cp.linalg.inv(self.extrinsic_matrix)
+        # 相机到赛场坐标系的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
+        self.camera_to_field_R = None # 后面初始化
+        self.camera_to_field_T = None # 后面初始化
+        self.camera_to_field_matrix = None # 后面初始化
+        self.field_to_camera_R = None # 后面初始化
         print(self.extrinsic_matrix)
         print(self.intrinsic_matrix)
+
+    # 相机坐标系到赛场坐标系的初始化
+    def camera_to_field_init(self,capture):
+        # 初始化要用的类
+        anchor = Anchor()
+        pp = PointsPicker()
+
+        while True:
+            # 获得一张图片
+            image = capture.get_frame()
+            # 把image resize为1920*1080
+            show_image = cv2.resize(image, (1920, 1080))
+            cv2.imshow("clear press y else n",show_image)
+            # 接收按键，如果y则进入下一步，否则重选一张
+            key = cv2.waitKey(0)
+            if key == ord('y'):
+                pp.caller(image, anchor)
+                true_points = np.array([self.left_up, self.left_down, self.right_down, self.right_up], dtype=np.float32)
+                pixel_points = np.array(anchor.vertexes, dtype=np.float32)
+                _, rotation_vector, translation_vector = cv2.solvePnP(true_points, pixel_points,
+                                                                      self.intrinsic_matrix.get(),
+                                                                      self.distortion_matrix)
+                rotation_matrix = cv2.Rodrigues(rotation_vector)[0]  # 从赛场到相机的旋转矩阵
+
+                # 将旋转矩阵R和平移向量T合并成一个4x4的齐次坐标变换矩阵
+                # 注意这里使用 rotation_matrix 和 translation_vector，前者是赛场到相机的旋转矩阵，后者是对应的平移向量
+                transformation_matrix = np.hstack((rotation_matrix, translation_vector.reshape(-1, 1)))  # 创建包含R和T的3x4矩阵
+
+                transformation_matrix = np.vstack((transformation_matrix, [0, 0, 0, 1]))  # 添加一个[0, 0, 0, 1]行向量
+                print("transformation_matrix",transformation_matrix)
+                # 获得从相机坐标系到赛场坐标系的矩阵，通过求逆
+                self.camera_to_field_matrix = np.linalg.inv(transformation_matrix)
+                # 将赛场坐标系的平移部分转为m
+                self.camera_to_field_matrix[:3, 3] /= 1000
+
+                print(self.camera_to_field_matrix)
+
+                break
+            else:
+                continue
+
+
+
     # 从numpy转到cupy
     def np2cp(self, np_array):
         return cp.array(np_array)
@@ -383,7 +439,15 @@ class Converter:
 
     # 传入相机坐标系的点云[x,y,z]，返回赛场坐标系的点云[x,y,z]，TODO:完成方法
     def camera_to_field(self, point):
+        # 传入相机坐标系的点云[x,y,z]，返回赛场坐标系的点云[x,y,z]
+        # 传入的是一个np.array格式的点云，返回的也是一个np.array格式的点云
+        # 直接乘以外参矩阵即可
+        point = np.hstack((point, 1))
+        point = np.dot(self.camera_to_field_matrix, point)
+        # 把最后的1删掉
+        point = point[:3]
         return point
+
 
     # 传入两个点，返回两个点的距离
     def get_distance_between_2points(self, point1, point2):

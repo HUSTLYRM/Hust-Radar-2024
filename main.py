@@ -32,34 +32,34 @@ if __name__ == '__main__':
     main_config_path = "configs/main_config.yaml"
     converter_config_path = "configs/converter_config.yaml"
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
+    # 全局变量
+    my_color = main_cfg['global']['my_color']
 
     # 设置保存路径
     save_video_folder_path = "data/train_record/"  # 保存视频的文件夹
-    # 今日日期，例如2024年5月6日则为20240506
-    today = time.strftime("%Y%m%d", time.localtime())
-    # 今日的视频文件夹
-    today_video_folder_path = save_video_folder_path + today + "/"
-    # 当天的视频文件夹不存在则创建
-    if not os.path.exists(today_video_folder_path):
+    today = time.strftime("%Y%m%d", time.localtime()) # 今日日期，例如2024年5月6日则为20240506
+    today_video_folder_path = save_video_folder_path + today + "/" # 今日的视频文件夹
+    if not os.path.exists(today_video_folder_path): # 当天的视频文件夹不存在则创建
         os.makedirs(today_video_folder_path)
-    # 视频名称，以时分秒命名，19：29：30则为192930
-    video_name = time.strftime("%H%M%S", time.localtime())
-    # 视频保存路径
-    video_save_path = today_video_folder_path + video_name + ".mp4"
+    video_name = time.strftime("%H%M%S", time.localtime()) # 视频名称，以时分秒命名，19：29：30则为192930
+    video_save_path = today_video_folder_path + video_name + ".mp4" # 视频保存路径
     if save_video:
-
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
         out = cv2.VideoWriter(video_save_path, fourcc, 6, (1920, 1280))  # 文件名，编码器，帧率，帧大小
+
+
 
 
 
     # 类初始化
     detector = Detector(detector_config_path)
     lidar = Lidar(main_cfg)
-    converter = Converter(converter_config_path)  # 传入的是path
+    converter = Converter("test",converter_config_path)  # 传入的是path
     carList = CarList(main_cfg)
     messager = Messager(main_cfg)
-    messager.start()
+
+
+
 
     if mode == "video":
         capture = Video(video_path)
@@ -68,6 +68,10 @@ if __name__ == '__main__':
     else:
         print("mode error")
         exit(1)
+
+
+    # 场地解算初始化
+    converter.camera_to_field_init(capture)
 
     start_time = time.time()
     # fps计算
@@ -79,6 +83,7 @@ if __name__ == '__main__':
     lidar.start()
     detector.create(capture)
     detector.start()
+    messager.start()
 
     # 创建一个空列表来存储所有检测的结果
     all_detections = []
@@ -196,10 +201,14 @@ if __name__ == '__main__':
 
                         # 将点转到赛场坐标系下 ， 此处未完成，返回的是[]
                         field_xyz = converter.camera_to_field(center)
+                        # 计算赛场坐标系下的距离
+                        field_distance = converter.get_distance(field_xyz)
+                        print("field xyz",field_xyz)
+                        print("field distance",field_distance)
 
                         # 在图像上写距离,位置为xyxy_box的左上角,可以去掉
-                        cv2.putText(result_img, "distance: {:.2f}".format(distance), (int(xyxy_box[0]), int(xyxy_box[1]),), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
-                        cv2.putText(result_img, "x: {:.2f}".format(center[0])+"y:{:.2f}".format(center[1])+"z:{:.2f}".format(center[2]), (int(xyxy_box[2]), int(xyxy_box[3]+10),),
+                        cv2.putText(result_img, "distance: {:.2f}".format(field_distance), (int(xyxy_box[0]), int(xyxy_box[1]),), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                        cv2.putText(result_img, "x: {:.2f}".format(field_xyz[0])+"y:{:.2f}".format(field_xyz[1])+"z:{:.2f}".format(field_xyz[2]), (int(xyxy_box[2]), int(xyxy_box[3]+10),),
                                     cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
 
                         # 将结果打包

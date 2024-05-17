@@ -305,6 +305,8 @@ class Detector:
     def detect_thread(self, capture):
         start_time = time.time()
         while True:  # 无限循环以持续处理图像
+            if not self.working_flag:
+                return
             now = time.time()
             fps = 1 / (now - start_time)
             start_time = now
