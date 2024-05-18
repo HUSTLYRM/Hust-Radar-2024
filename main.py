@@ -22,7 +22,7 @@ import os
 # tracemalloc.start()
 
 mode = "camera" # "video" or "camera"
-save_video = False
+save_video = False # 是否保存视频
 round = 11 # 练赛第几轮
 
 if __name__ == '__main__':
@@ -34,6 +34,7 @@ if __name__ == '__main__':
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
     # 全局变量
     my_color = main_cfg['global']['my_color']
+    is_debug = main_cfg['global']['is_debug']
 
     # 设置保存路径
     save_video_folder_path = "data/train_record/"  # 保存视频的文件夹
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     video_save_path = today_video_folder_path + video_name + ".mp4" # 视频保存路径
     if save_video:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
-        out = cv2.VideoWriter(video_save_path, fourcc, 6, (1920, 1280))  # 文件名，编码器，帧率，帧大小
+        out = cv2.VideoWriter(video_save_path, fourcc, 12, (1920, 1280))  # 文件名，编码器，帧率，帧大小
 
 
 
@@ -198,19 +199,20 @@ if __name__ == '__main__':
                         distance = converter.get_distance(center)
                         if distance == 0:
                             continue
-                        print("xyz:",center,"distance:",distance)
+                        # print("xyz:",center,"distance:",distance)
 
                         # 将点转到赛场坐标系下 ， 此处未完成，返回的是[]
                         field_xyz = converter.camera_to_field(center)
                         # 计算赛场坐标系下的距离
                         field_distance = converter.get_distance(field_xyz)
-                        print("field xyz",field_xyz)
-                        print("field distance",field_distance)
+                        # print("field xyz",field_xyz)
+                        # print("field distance",field_distance)
 
                         # 在图像上写距离,位置为xyxy_box的左上角,可以去掉
-                        cv2.putText(result_img, "distance: {:.2f}".format(field_distance), (int(xyxy_box[0]), int(xyxy_box[1]),), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
-                        cv2.putText(result_img, "x: {:.2f}".format(field_xyz[0])+"y:{:.2f}".format(field_xyz[1])+"z:{:.2f}".format(field_xyz[2]), (int(xyxy_box[2]), int(xyxy_box[3]+10),),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                        if is_debug:
+                            cv2.putText(result_img, "distance: {:.2f}".format(field_distance), (int(xyxy_box[0]), int(xyxy_box[1]),), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                            cv2.putText(result_img, "x: {:.2f}".format(field_xyz[0])+"y:{:.2f}".format(field_xyz[1])+"z:{:.2f}".format(field_xyz[2]), (int(xyxy_box[2]), int(xyxy_box[3]+10),),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
 
                         # 将结果打包
                         # carList_results , # result in carList_results: [track_id , car_id , xywh , conf ,  camera_xyz , filed_xyz ]
@@ -221,7 +223,7 @@ if __name__ == '__main__':
 
 
             # 我方颜色
-            my_color = carList.my_color
+            # my_color = carList.my_color
             # print(my_color)
 
             all_infos = carList.get_all_info()
@@ -230,7 +232,7 @@ if __name__ == '__main__':
             # result in results:[car_id , center_xy , camera_xyz , field_xyz]
             # 如果是我方车辆，找到所有敌方车辆，计算与每一台敌方车辆距离，并在图像两车辆中心点之间画线，线上写距离
             for all_info in all_infos:
-                car_id , center_xy , camera_xyz , field_xyz , color = all_info
+                car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
 
                 # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
                 all_detections.append([frame_id] + list(all_info))
@@ -251,34 +253,40 @@ if __name__ == '__main__':
 
             # 画线
             for my_car_info in my_car_infos:
-                my_car_id , my_center_xy , my_camera_xyz , my_field_xyz , my_color = my_car_info
+                my_car_id , my_center_xy , my_camera_xyz , my_field_xyz , my_color , my_is_valid= my_car_info
                 # 将相机的xyz坐标点投影到图像上，并画一个红色的点
-                my_camera_xyz = my_camera_xyz.reshape(1, -1)
-                my_reprojected_point = converter.camera_to_image(my_camera_xyz)[0] # u,v是图像坐标系下的坐标
-                cv2.circle(result_img, (int(my_reprojected_point[0]), int(my_reprojected_point[1])), 5, (0, 0, 255), -1)
-                if my_car_id == carList.sentinel_id:
+                if is_debug:
+                    my_camera_xyz = my_camera_xyz.reshape(1, -1)
+                    my_reprojected_point = converter.camera_to_image(my_camera_xyz)[0] # u,v是图像坐标系下的坐标
+                    cv2.circle(result_img, (int(my_reprojected_point[0]), int(my_reprojected_point[1])), 5, (0, 0, 255), -1)
+                if my_car_id == carList.sentinel_id and my_is_valid:
                     # 记录符合距离要求的距离最近的车
                     min_distance_car_id = -1
                     min_distance = 1000
                     min_distance_angle = -1
                     for enemy_car_info in enemy_car_infos:
-                        enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color = enemy_car_info
+                        enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color , enemy_is_valid= enemy_car_info
+                        # 如果不可信，跳过
+                        if not enemy_is_valid:
+                            continue
                         # 将相机的xyz坐标点投影到图像上，并画一个红色的点
-                        enemy_camera_xyz = enemy_camera_xyz.reshape(1, -1)
-                        enemy_reprojected_point = converter.camera_to_image(enemy_camera_xyz)[0]  # u,v是图像坐标系下的坐标
+                        if is_debug:
+                            enemy_camera_xyz = enemy_camera_xyz.reshape(1, -1)
+                            enemy_reprojected_point = converter.camera_to_image(enemy_camera_xyz)[0]  # u,v是图像坐标系下的坐标
                         # 计算距离
                         distance = np.linalg.norm(np.array(my_field_xyz) - np.array(enemy_field_xyz))
-                        cv2.circle(result_img, (int(enemy_reprojected_point[0]), int(enemy_reprojected_point[1])), 5,
-                                   (0, 0, 255), -1)
-                        # 画线,从我方车辆中心点到敌方车辆中心点
-                        cv2.line(result_img, (int(my_reprojected_point[0]), int(my_reprojected_point[1])),
-                                 (int(enemy_reprojected_point[0]), int(enemy_reprojected_point[1])), (0, 255, 122), 2)
-                        # 写距离
-                        cv2.putText(result_img, "distance: {:.2f}".format(distance), (
-                            int((my_center_xy[0] + enemy_center_xy[0]) / 2),
-                            int((my_center_xy[1] + enemy_center_xy[1]) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
-                                    (0, 255, 122),
-                                    2)
+                        if is_debug:
+                            cv2.circle(result_img, (int(enemy_reprojected_point[0]), int(enemy_reprojected_point[1])), 5,
+                                       (0, 0, 255), -1)
+                            # 画线,从我方车辆中心点到敌方车辆中心点
+                            cv2.line(result_img, (int(my_reprojected_point[0]), int(my_reprojected_point[1])),
+                                     (int(enemy_reprojected_point[0]), int(enemy_reprojected_point[1])), (0, 255, 122), 2)
+                            # 写距离
+                            cv2.putText(result_img, "distance: {:.2f}".format(distance), (
+                                int((my_center_xy[0] + enemy_center_xy[0]) / 2),
+                                int((my_center_xy[1] + enemy_center_xy[1]) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
+                                        (0, 255, 122),
+                                        2)
                         # 判断距离是否符合
                         if distance < carList.sentinel_min_alert_distance or distance > carList.sentinel_max_alert_distance:
                             continue
@@ -291,9 +299,10 @@ if __name__ == '__main__':
                             min_distance_car_id = enemy_car_id
                     # 在哨兵重投影点上写上最近预警车辆的id，距离和角度
                     if min_distance_car_id != -1:
-                        cv2.putText(result_img, "id: {}".format(min_distance_car_id), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
-                        cv2.putText(result_img, "distance: {:.2f}".format(min_distance), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) + 10), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
-                        cv2.putText(result_img, "angle: {:.2f}".format(min_distance_angle), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) + 30), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                        if is_debug:
+                            cv2.putText(result_img, "id: {}".format(min_distance_car_id), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                            cv2.putText(result_img, "distance: {:.2f}".format(min_distance), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) + 10), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
+                            cv2.putText(result_img, "angle: {:.2f}".format(min_distance_angle), (int(my_reprojected_point[0]), int(my_reprojected_point[1]) + 30), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
                         # 将角度转为象限 ， carID , distance , quadrant
                         quadrant = converter.angle_to_quadrant(min_distance_angle)
                         # zip
@@ -306,14 +315,14 @@ if __name__ == '__main__':
 
             if result_img is None:
                 continue
-
-            cv2.putText(result_img, "fps: {:.2f}".format(avg_fps), (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122),
+            if is_debug:
+                cv2.putText(result_img, "fps: {:.2f}".format(avg_fps), (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122),
                         2)
-
-            result_img = cv2.resize(result_img, (1920, 1280))
+                result_img = cv2.resize(result_img, (1920, 1280))
             if save_video:
                 out.write(result_img)
-            cv2.imshow("frame", result_img) # 不加3帧
+            if is_debug:
+                cv2.imshow("frame", result_img) # 不加3帧
             frame_id += 1
             if cv2.waitKey(1) == ord('q'):
                 break

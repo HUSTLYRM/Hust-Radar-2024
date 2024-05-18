@@ -7,6 +7,7 @@ from ultralytics import YOLO
 import math
 import time
 import threading
+import os
 # 封装Tracker类，
 
 # 封装Detector类
@@ -15,17 +16,30 @@ class Detector:
         # 加载配置文件
         self.cfg = YAML().load(open(detector_config_path, encoding='Utf-8', mode='r'))
 
+        # flag
+        self.is_record = self.cfg['is_record']
+        if self.is_record:
+            save_video_folder_path = "data/train_record/"  # 保存视频的文件夹
+            today = time.strftime("%Y%m%d", time.localtime())  # 今日日期，例如2024年5月6日则为20240506
+            today_video_folder_path = save_video_folder_path + today + "/"  # 今日的视频文件夹
+            if not os.path.exists(today_video_folder_path):  # 当天的视频文件夹不存在则创建
+                os.makedirs(today_video_folder_path)
+            video_name = time.strftime("%H%M%S", time.localtime())  # 视频名称，以时分秒命名，19：29：30则为192930
+            video_save_path = today_video_folder_path + video_name + ".avi"  # 视频保存路径
+            fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+            self.out = cv2.VideoWriter(video_save_path, fourcc, 12.0, (4024 , 3036))
+
         # 检测模型
         print('Loading Car Model')
         # 打印绝对路径
-        print(self.cfg['path']['stage_one_path'])
+        # print(self.cfg['path']['stage_one_path'])
         self.model_car = YOLO(self.cfg['path']['stage_one_path'] , task = "detect")
 
         self.model_car2 = YOLO(self.cfg['path']['stage_two_path'])
         print('Done\n')
         # 设置参数
         self.tracker_path = self.cfg['path']['tracker_path']
-        print(self.tracker_path)
+        # print(self.tracker_path)
         self.stage_one_conf = self.cfg['params']['stage_one_conf']
         self.stage_two_conf = self.cfg['params']['stage_two_conf']
         self.life_time = self.cfg['params']['life_time'] # 生命周期
@@ -37,7 +51,7 @@ class Detector:
         self.Track_value = {} # 这是tracker的track_id和类别的字典，主键是追踪器编号，值是一个列表，记录每个类别的识别次数。每个追踪器有所有类别的识别次数
         for i in range(1000):
             self.Track_value[i] = [0] * self.class_num
-        self.id_candiate = [0] * 1000
+        self.id_candidate = [0] * 10000
         # 设置计数器
         self.loop_times = 0
 
@@ -81,20 +95,23 @@ class Detector:
         self.labels = None
         self.class_num = None
         self.Track_value = None
-        self.id_candiate = None
+        self.id_candidate = None
         self.loop_times = None
         self.threading = None
         self.working_flag = None
         self.init_flag = None
         self._result_lock = None
         self._results = None
+        if self.is_record:
+            if self.out is not None:
+                self.out.release()
 
     # 二阶段分类推理Classify
     def classify_infer(self, roi_list): # 输入原图和box, 返回分类结果
 
 
         
-        results = self.model_car2.predict(roi_list, conf=0.5, iou=0.7 , device = 0 ,verbose = True  )
+        results = self.model_car2.predict(roi_list, conf=0.5, iou=0.7 , device = 0 ,verbose = False  )
         if len(results) == 0:  # no detect
             return -1
 
@@ -313,13 +330,16 @@ class Detector:
             print("in fps",fps)
             frame = capture.get_frame()
             if frame is not None:
+                if self.is_record:
+                    self.out.write(frame)
                 # 执行目标检测
                 infer_result = self.infer(frame)
 
                 if infer_result is not None:
                     with self._result_lock:
-                        print("update detect result")
+                        # print("update detect result")
                         self._results = infer_result  # 更新结果列表
+
 
 
 
