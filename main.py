@@ -24,6 +24,8 @@ import os
 mode = "camera" # "video" or "camera"
 save_video = False # 是否保存视频
 round = 11 # 练赛第几轮
+save_csv_threshold = 1000 # 保存csv的轮数
+is_save_csv = True
 
 if __name__ == '__main__':
     video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/train_record/0505/ori_data/video10.mp4"
@@ -81,9 +83,10 @@ if __name__ == '__main__':
 
 
     # 开启激光雷达线程
-    lidar.start()
+
     detector.create(capture)
     detector.start()
+    lidar.start()
     messager.start()
 
     # 创建一个空列表来存储所有检测的结果
@@ -91,8 +94,11 @@ if __name__ == '__main__':
 
     # 当前帧ID
     frame_id = 1
+    # 控制主循环最高10帧
+    # last_time_main_loop = time.time()
+    counter = 0
 
-
+    print("enter main loop")
     try:
         # 主循环
         while True:
@@ -110,6 +116,10 @@ if __name__ == '__main__':
             #     # cv2.imshow("ori", frame)
             # else:
             #     print("end")
+            # 控制主循环最高10帧
+            # if time.time() - last_time_main_loop < 0.1:
+            #     continue
+            # last_time_main_loop = time.time()
 
             # 计算fps
             now = time.time()
@@ -123,19 +133,25 @@ if __name__ == '__main__':
             # print("fps:",avg_fps)
 
             # 获得推理结果
+            # print("try to get infer result")
             infer_result = detector.get_results()
+            # print("get infer result")
+            # print("infer_result:",infer_result)
             # carList_results , # result in carList_results: [track_id , car_id , xywh , conf ,  camera_xyz , filed_xyz ]
             # 需要打包一份给carList
             carList_results = []
             result_img = None
             # 确保推理结果不为空且可以解包
-            if infer_result is not None and len(infer_result) == 2:
+            if infer_result is not None:
                 # print(infer_result)
                 result_img, results = infer_result
 
                 if results is not None:
+                    print("results is not none")
                     if lidar.pcdQueue.point_num == 0:
+                        print("no pcd")
                         continue
+                    print("pcd num:",lidar.pcdQueue.point_num)
                     pc_all = lidar.get_all_pc()
 
                     # 创建总体点云pcd
@@ -147,8 +163,10 @@ if __name__ == '__main__':
 
                     # 检测框对应点云
                     box_pcd = o3d.geometry.PointCloud()
+
                     # 对每个结果进行分析 , 进行目标定位
                     for result in results:
+                        print("result handle")
                         # 对每个检测框进行处理，获取对应点云
                         # 结果：[xyxy_box, xywh_box , track_id , label ]
                         xyxy_box, xywh_box ,  track_id , label = result # xywh的xy是中心点的xy
@@ -167,7 +185,7 @@ if __name__ == '__main__':
 
                         # 获取检测框内numpy格式pc
                         box_pc = converter.get_points_in_box(pcd_all.points, new_xyxy_box)
-
+                        print(len(box_pc))
                         # 如果没有获取到点，直接continue
                         if len(box_pc) == 0:
                             print("no points in box")
@@ -219,7 +237,7 @@ if __name__ == '__main__':
                         carList_results.append([track_id , carList.get_car_id(label) , xywh_box , 1 , center , field_xyz])
 
                     # 将结果传入carList
-                    carList.update_car_info(carList_results)
+            carList.update_car_info(carList_results)
 
 
             # 我方颜色
@@ -237,8 +255,8 @@ if __name__ == '__main__':
                 # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
                 all_detections.append([frame_id] + list(all_info))
 
-                print("car_id:",car_id,"center_xy:",center_xy,"camera_xyz:",camera_xyz,"field_xyz:",field_xyz ,"color:",color)
-                print("mc",my_color,"mc","c",color,"c")
+                # print("car_id:",car_id,"center_xy:",center_xy,"camera_xyz:",camera_xyz,"field_xyz:",field_xyz ,"color:",color , "is_valid:",is_valid)
+                # print("mc",my_color,"mc","c",color,"c")
                 # 将信息分两个列表存储
                 if color == my_color:
                     #print("same")
@@ -314,6 +332,7 @@ if __name__ == '__main__':
 
 
             if result_img is None:
+                print("result_img is none")
                 continue
             if is_debug:
                 cv2.putText(result_img, "fps: {:.2f}".format(avg_fps), (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122),
@@ -321,6 +340,15 @@ if __name__ == '__main__':
                 result_img = cv2.resize(result_img, (1920, 1280))
             if save_video:
                 out.write(result_img)
+            if is_save_csv:
+                counter += 1
+                if counter % save_csv_threshold == 0:
+                    df = pd.DataFrame(all_detections, columns=['frame_id', 'car_id', 'center_xy', 'camera_xyz', 'field_xyz', 'color' , 'is_valid'])
+                    # 将结果写入xlsx文件中，文件名使用保存视频文件名但后缀修改为xlsx
+                    xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
+                    df.to_excel(xlsx_file_name, index=False)
+                    # 重置all_detections
+                    all_detections = []
             if is_debug:
                 cv2.imshow("frame", result_img) # 不加3帧
             frame_id += 1

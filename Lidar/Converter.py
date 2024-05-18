@@ -217,10 +217,29 @@ class Converter:
         pc = self.cp2np(pc)
         self.update_pcd(pcd, pc)
 
+    # 将角度转为象限 , -22.5-22.5为0,顺时针22.5-67.5为1，以此类推
+    def angle_to_quadrant(self, angle):
+        if -22.5 <= angle < 22.5:
+            return 0
+        if 22.5 <= angle < 67.5:
+            return 1
+        if 67.5 <= angle < 112.5:
+            return 2
+        if 112.5 <= angle < 157.5:
+            return 3
+        if angle >= 157.5 or angle < -157.5:
+            return 4
+        if -157.5 <= angle < -112.5:
+            return 5
+        if -112.5 <= angle < -67.5:
+            return 6
+        if -67.5 <= angle < -22.5:
+            return 7
 
-    def camera_to_image(self, pcd): # 传入的是一个open3d的pcd格式的点云，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
+
+    def camera_to_image(self, pc): # 传入的是一个open3d的pcd格式的点云，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
         # 相机坐标系下的点云批量乘以内参矩阵，得到图像坐标系下的u,v和z,类似于深度图的生成
-        pc = self.get_points(pcd)
+
         # 从numpy变为cupy
         pc = self.np2cp(pc)
 
@@ -292,13 +311,13 @@ class Converter:
 
 
     # 获取投影后落在深度图矩形框内的点云 , 并不是反向映射，而是直接提取落在矩形框内的点云
-    def get_points_in_box(self, pcd, box): # 传入的为pcd格式点云，box是一个元组，包含了矩形框的左上角和右下角的坐标：(min_u, min_v, max_u, max_v)，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
+    def get_points_in_box(self, pc, box): # 传入的为pcd格式点云，box是一个元组，包含了矩形框的左上角和右下角的坐标：(min_u, min_v, max_u, max_v)，返回的是一个n*3的矩阵，n是点云的数量，是np.array格式的
         # box是一个元组，包含了矩形框的左上角和右下角的坐标：(min_u, min_v, max_u, max_v)
         # 好像没有小孔成像的感觉，似乎并不是一个锥形
         min_u, min_v, max_u, max_v = box
         print(box)
         # 提取像素坐标系下坐标
-        uvz = self.camera_to_image(pcd)
+        uvz = self.camera_to_image(pc)
         # numpy到cupy
         uvz = self.np2cp(uvz)
         # 提取u,v,z
@@ -312,7 +331,7 @@ class Converter:
         mask3 = cp.bitwise_and(mask1, mask2)
         mask = cp.bitwise_and(mask3, z <= self.max_depth) # 滤除超出最大深度的点云
         # 获得落在矩形框中的点云的点云的index,pcd.points才是要筛选的点云
-        box_points = cp.asarray(pcd.points)[mask]
+        box_points = cp.asarray(pc)[mask]
 
         box_points = self.cp2np(box_points)
 

@@ -4,12 +4,13 @@ import threading
 import rospy
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs import point_cloud2
+# import cupy as cp
 from ruamel.yaml import YAML
 import ctypes
 import inspect
 
-main_cfg_path = "configs/main_config.yaml"
-main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
+# main_cfg_path = "configs/main_config.yaml"
+# main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
 
 class Lidar:
     def __init__(self,cfg):
@@ -24,6 +25,7 @@ class Lidar:
         # 参数
         self.height_threshold = cfg["lidar"]["height_threshold"]  # 自身高度，用于去除地面点云
         self.min_distance = cfg["lidar"]["min_distance"]  # 最近距离，距离小于这个范围的不要
+        self.max_distance = cfg["lidar"]["max_distance"]  # 最远距离，距离大于这个范围的不要
         self.lidar_topic_name = cfg["lidar"]["lidar_topic_name"] # 激光雷达话题名
 
         # 点云队列
@@ -46,8 +48,9 @@ class Lidar:
         开始子线程，即开始spin
         '''
         if not self.working_flag:
-            self.threading.start()
             self.working_flag = True
+            self.threading.start()
+
             # print("start@")
 
     # 线程关闭
@@ -98,12 +101,36 @@ class Lidar:
         # print("loop")
         # 当spin调用时，subscriber就会开始轮询接收所订阅的节点数据，即不断调用callback函数
 
+
+
+    # def callback(self, data):
+    #     '''
+    #     子线程函数，对于/livox/lidar topic数据的处理 , data是传入的
+    #     '''
+    #     if self.stop_event.is_set():
+    #         return
+    #     if self.working_flag:
+    #         # 获取点云
+    #         pc = cp.asarray(
+    #             np.float32(point_cloud2.read_points_list(data, field_names=("x", "y", "z"), skip_nans=True)).reshape(-1,
+    #                                                                                                                  3))
+    #
+    #         # 过滤点云
+    #         dist = cp.linalg.norm(pc, axis=1)  # 计算点云距离
+    #         pc = pc[dist > self.min_distance]  # 雷达近距离滤除
+    #         pc = pc[dist < self.max_distance]  # 雷达远距离滤除
+    #
+    #         with self.lock:
+    #             # 存入点云队列
+    #             self.pcdQueue.add(cp.asnumpy(pc))
+
     def callback(self,data):
         '''
         子线程函数，对于/livox/lidar topic数据的处理 , data是传入的
         '''
-        # print("callback")
+        #print("callback")
         if self.stop_event.is_set():
+            print("stop is set")
             return
         if self.working_flag:
             # print("lidar working")
@@ -113,9 +140,17 @@ class Lidar:
 
             # 过滤点云
             dist = np.linalg.norm(pc, axis=1)  # 计算点云距离
+            #print("pc dist", dist)
+            #print(pc)
             pc = pc[dist > self.min_distance]  # 雷达近距离滤除
+            # 第二次需要重新计算距离，否则会出现维度不匹配
+            dist = np.linalg.norm(pc, axis=1)  # 计算点云距离
+            pc = pc[dist < self.max_distance]  # 雷达远距离滤除
+            # print(len(pc))
             # 如果在地面+5cm以上，才保留，在地面的点为-height_threshold,
-            pc = pc[pc[:, 2] > (-1 * self.height_threshold)]
+            # pc = pc[pc[:, 2] > (-1 * self.height_threshold)]
+
+
             with self.lock:
                 # 存入点云队列
                 # print("hi")
