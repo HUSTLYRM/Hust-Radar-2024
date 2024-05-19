@@ -63,6 +63,7 @@ class Messager:
 
     # 更新敌方车辆信息
     def update_enemy_car_infos(self , enemy_car_infos):
+        # 如果为空，直接返回
         with self.map_lock:
             self.enemy_car_infos = enemy_car_infos
 
@@ -144,7 +145,7 @@ class Messager:
 
             # 提取enemy_car_infos
             enemy_car_infos = self.enemy_car_infos
-            print(enemy_car_infos)
+            print("ready to send map info",enemy_car_infos)
 
             # 不可信的车辆信息，也发送，但是要控制在0.45s发送一次，先记录，最后再统一发送
             # 不可信的车辆信息
@@ -153,10 +154,12 @@ class Messager:
 
             for enemy_car_info in enemy_car_infos:
                 # 提取car_id和field_xyz
-                car_id , field_xyz , is_valid = enemy_car_info[0] , enemy_car_info[3] , enemy_car_info[5]
-
+                track_id , car_id , field_xyz , is_valid = enemy_car_info[0] ,enemy_car_info[1] , enemy_car_info[4] , enemy_car_info[6]
+                if track_id == -1: # 如果track_id为-1，说明没有检测到，不发送
+                    print("not init continue")
+                    continue
                 # 将所有信息打印
-                print("car_id:",car_id , "field_xyz:",field_xyz , "is_valid:",is_valid)
+                # print("car_id:",car_id , "field_xyz:",field_xyz , "is_valid:",is_valid)
                 # 提取x和y
                 x , y = field_xyz[0] , field_xyz[1]
                 # x的控制边界，让他在[0,28]m , y控制在[0,15]m
@@ -172,7 +175,7 @@ class Messager:
                         # print("sleep time:",0.1 - time_interval)
                         time.sleep(0.1 - time_interval)
                 else:
-                    if time.time() - self.last_send_time_map[car_id] < 0.45:
+                    if time.time() - self.last_send_time_map[car_id] < 0.40:
                         print("not valid ,sleep", 0.45 - (time.time() - self.last_send_time_map[car_id]) )
                         continue
 

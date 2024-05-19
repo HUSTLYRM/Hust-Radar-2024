@@ -63,9 +63,9 @@ class Capture:
         if _ret == hk.MV_OK:
             self.ret.contents = True
 
-            print("[%s] get one frame: Width[%d], Height[%d], nFrameNum[%d], timestamp(high)[%d], timestamp(low)[%d]"
-                  % (self.camera_name, int(frame_info.nWidth), int(frame_info.nHeight),
-                     int(frame_info.nFrameNum), int(frame_info.nDevTimeStampHigh), int(frame_info.nDevTimeStampLow)))
+            # print("[%s] get one frame: Width[%d], Height[%d], nFrameNum[%d], timestamp(high)[%d], timestamp(low)[%d]"
+            #       % (self.camera_name, int(frame_info.nWidth), int(frame_info.nHeight),
+            #          int(frame_info.nFrameNum), int(frame_info.nDevTimeStampHigh), int(frame_info.nDevTimeStampLow)))
 
             b1 = hk.MVCC_FLOATVALUE()
 

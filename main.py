@@ -244,26 +244,30 @@ if __name__ == '__main__':
             # my_color = carList.my_color
             # print(my_color)
 
-            all_infos = carList.get_all_info()
+            all_infos = carList.get_all_info() # 此步不做trust的筛选，留给messager做
             my_car_infos = []
             enemy_car_infos = []
             # result in results:[car_id , center_xy , camera_xyz , field_xyz]
             # 如果是我方车辆，找到所有敌方车辆，计算与每一台敌方车辆距离，并在图像两车辆中心点之间画线，线上写距离
             for all_info in all_infos:
-                car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
+                track_id , car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
 
-                # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
-                all_detections.append([frame_id] + list(all_info))
+
 
                 # print("car_id:",car_id,"center_xy:",center_xy,"camera_xyz:",camera_xyz,"field_xyz:",field_xyz ,"color:",color , "is_valid:",is_valid)
                 # print("mc",my_color,"mc","c",color,"c")
                 # 将信息分两个列表存储
                 if color == my_color:
                     #print("same")
+                    if track_id == -1:
+                        continue
                     my_car_infos.append(all_info)
                 else:
                     #print("dif")
                     enemy_car_infos.append(all_info)
+                    if track_id != -1:
+                        # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
+                        all_detections.append([frame_id] + list(all_info))
 
             # 通信
             messager.update_enemy_car_infos(enemy_car_infos)
@@ -271,7 +275,7 @@ if __name__ == '__main__':
 
             # 画线
             for my_car_info in my_car_infos:
-                my_car_id , my_center_xy , my_camera_xyz , my_field_xyz , my_color , my_is_valid= my_car_info
+                my_track_id , my_car_id , my_center_xy , my_camera_xyz , my_field_xyz , my_color , my_is_valid= my_car_info
                 # 将相机的xyz坐标点投影到图像上，并画一个红色的点
                 if is_debug:
                     my_camera_xyz = my_camera_xyz.reshape(1, -1)
@@ -283,9 +287,9 @@ if __name__ == '__main__':
                     min_distance = 1000
                     min_distance_angle = -1
                     for enemy_car_info in enemy_car_infos:
-                        enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color , enemy_is_valid= enemy_car_info
+                        enemy_track_id , enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color , enemy_is_valid= enemy_car_info
                         # 如果不可信，跳过
-                        if not enemy_is_valid:
+                        if not enemy_is_valid or enemy_track_id == -1: # 不可信或未初始化
                             continue
                         # 将相机的xyz坐标点投影到图像上，并画一个红色的点
                         if is_debug:
@@ -342,13 +346,14 @@ if __name__ == '__main__':
                 out.write(result_img)
             if is_save_csv:
                 counter += 1
-                if counter % save_csv_threshold == 0:
-                    df = pd.DataFrame(all_detections, columns=['frame_id', 'car_id', 'center_xy', 'camera_xyz', 'field_xyz', 'color' , 'is_valid'])
+                if counter > save_csv_threshold :
+                    df = pd.DataFrame(all_detections, columns=['frame_id', 'track_id' ,'car_id', 'center_xy', 'camera_xyz', 'field_xyz', 'color' , 'is_valid'])
                     # 将结果写入xlsx文件中，文件名使用保存视频文件名但后缀修改为xlsx
                     xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
                     df.to_excel(xlsx_file_name, index=False)
                     # 重置all_detections
                     all_detections = []
+                    counter = 0
             if is_debug:
                 cv2.imshow("frame", result_img) # 不加3帧
             frame_id += 1
@@ -365,9 +370,10 @@ if __name__ == '__main__':
         # xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
         # df.to_excel(xlsx_file_name, index=False)
 
-        capture.release()
+
         detector.stop()
         detector.release()
+        capture.release()
         if save_video:
             out.release()
         lidar.stop()

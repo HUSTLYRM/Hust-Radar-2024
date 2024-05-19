@@ -7,7 +7,7 @@ from ruamel.yaml import YAML
 
 # Car类，单个车辆的信息，有R1-R5，R7，B1-B5，B7
 class Car:
-    def __init__(self, car_id , life_span = 20):
+    def __init__(self, car_id , life_span_init = 20):
         # 主键 , 依照串口通信协议，车辆ID
         self.car_id = car_id
         # 此车颜色 , 可以直接由car_id计算
@@ -24,7 +24,7 @@ class Car:
         self.field_xyz = [] # 赛场坐标系下的三维坐标 , 单位是m
         self.field_xy = [] # 赛场坐标系下的二维坐标 , 单位是m , float
         # 当前信息可信生命周期,每次图像检测帧对所有车辆生命周期进行刷新，如果生命周期为0,则初始化所有解算信息
-        self.life_span_max = life_span # 最大生命周期
+        self.life_span_max = life_span_init # 最大生命周期
         self.life_span = 0 # 当前生命周期，每次检测帧对所有车辆生命周期进行刷新，如果生命周期为0,则认为车辆信息不可信，但是不初始化，只是不发给哨兵，但是还是发给裁判系统
         # 车辆信息是否可信
         self.trust = False
@@ -64,13 +64,17 @@ class Car:
 
     # 如果本帧没有检测此车，生命周期减一
     def life_down(self):
-        if self.track_id == -1: # 如果本来就掉追踪了，直接返回
+        # if self.track_id == -1: # 如果本来就掉追踪了，直接返回
+        #     return
+        if not self.trust: # 如果已经不可信了
             return
         self.life_span -= 1
-        if self.life_span == 0:
+        if self.life_span < 0:
+            print("refresh",self.car_id)
             self.refresh()
     # 中间方法，为了让没有刷新的车辆生命周期减一，先对刷新的车辆生命周期+1,再对所有车辆生命周期-1
     def life_up(self):
+
         self.life_span += 1
 
     # 获取车辆中心
@@ -103,6 +107,14 @@ class CarList:
     def __init__(self , cfg):
         # 配置文件
         self.my_color = cfg["global"]["my_color"] # 我方颜色 , "Red" or "Blue"
+        if self.my_color == "Red":
+            self.sentinel_id = 7
+            self.enemy_ids = [101, 102, 103, 104, 105, 107]
+        else:
+            self.sentinel_id = 107
+            self.enemy_ids = [1, 2, 3, 4, 5, 7]
+        self.sentinel_min_alert_distance = 0.1 # 最近预警距离
+        self.sentinel_max_alert_distance = 8.0 # 最远预警距离
         self.life_span = cfg["car"]["life_span"] # 车辆信息可信生命周期
         self.RedCarsID = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5 , 7:7} # 红方车辆序号和车辆ID的对应关系
         self.BlueCarsID = {1: 101, 2: 102, 3: 103, 4: 104, 5: 105 , 7:107} # 蓝方车辆序号和车辆ID的对应关系
@@ -138,9 +150,11 @@ class CarList:
                     car.set_track_info(track_id, conf, xywh)
                     car.set_camera_xyz(camera_xyz)
                     car.set_field_xyz(field_xyz)
+                    car.life_span = car.life_span_max # 重置生命周期
                 car.life_up() # 刷新的车辆生命周期先+1
             # 对所有车辆生命周期减一,这样没有刷新的车辆生命周期减一
             for car in self.cars.values():
+                # print("life down",car.life_span)
                 car.life_down()
 
     # 根据car_id获取车对象，中间方法
@@ -164,8 +178,7 @@ class CarList:
         results = []
         with self.lock:
             for car in self.cars.values():
-                if car.trust:
-                    results.append([car.car_id, car.center_xy, car.camera_xyz, car.field_xyz , car.color])
+                results.append([car.track_id , car.car_id, car.center_xy, car.camera_xyz, car.field_xyz , car.color , car.trust])
         return results
 
     # 简易辅助哨兵决策测试用，获取图像坐标系下我方哨兵(7号车）和敌方车辆的中心点信息,返回results
@@ -173,13 +186,8 @@ class CarList:
     # enemy_info in enemy_infos:[enemy_id , center_x , center_y] # enemy_id为1-5,7 或101-105,107
     def get_center_info(self):
         results = []
-        if self.my_color == "Red":
-            sentinel_id = 7
-            enemy_ids = [101, 102, 103, 104, 105, 107]
-        else:
-            sentinel_id = 107
-            enemy_ids = [1, 2, 3, 4, 5, 7]
-
+        sentinel_id = self.sentinel_id
+        enemy_ids = self.enemy_ids
         with self.lock:
             sentinel = self.get_car_by_id(sentinel_id)
             sentinel_xy = sentinel.get_center()

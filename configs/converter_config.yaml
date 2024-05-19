@@ -35,3 +35,20 @@ filter:
   nb_neighbors: 20
   std_ratio: 2.0
   voxel_size: 0.035
+
+field:
+  Red:
+    left_up: [8670,9285,420]
+    left_down: [8670,9285,120]
+    right_down: [8670,8885,120]
+    right_up: [8670,8885,420]
+  Blue:
+    left_up: [19330,5715,420]
+    left_down: [19330,5715,120]
+    right_down: [19330,6115,120]
+    right_up: [19330,6115,420]
+  test:
+    left_up: [0,0,125] # 22.5 12.5
+    left_down: [0,0,0]
+    right_down: [225,0,0]
+    right_up: [225,0,125]

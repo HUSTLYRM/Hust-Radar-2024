@@ -1,7 +1,8 @@
-debug: False
+
 
 global:
-  my_color: "Red" # "Blue"
+  my_color: "Blue" # "Blue"
+  is_debug: True # False
 
 
 ctrl:
@@ -36,4 +37,10 @@ car:
 lidar:
   height_threshold: 1.4 # 还没有量，激光雷达如果点比负1.4小，则认为在地面，不要
   min_distance: 0.4 # 去除距离在这个范围以内的接收点云
+  max_distance: 32 # 去除距离在这个范围以外的接收点云
   lidar_topic_name: "/livox/lidar" # 点云发布话题名字
+
+communication:
+  port: '/dev/ttyUSB0' # 串口
+  bps: 115200 # 波特率
+  timex: 0.01 # 超时时间

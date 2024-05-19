@@ -62,7 +62,7 @@ class Detector:
         self.init_flag = False
         # 初始化锁对象和结果列表
         self._result_lock = threading.Lock()
-        self._results = []
+        self._results = [None , None]
 
     # 创建线程
     def create(self, capture):
@@ -175,10 +175,10 @@ class Detector:
 
     # 总的推理
     def infer(self, frame): # 输入原图，返回推理结果
-        print("infer")
+        # print("infer")
         # frame判空
         if frame is None:
-            print("No frame!")
+            # print("No frame!")
             return None , None
 
         # # 展示frame的尺寸
@@ -186,15 +186,15 @@ class Detector:
 
 
         # 获取推理结果
-        print("track_infer")
+        # print("track_infer")
         results = self.track_infer(frame)
-        print("after track")
+        # print("after track")
 
 
 
         # 一阶段results判空
         if self.is_results_empty(results):
-            print("No results!")
+            # print("No results!")
             return frame , None
 
 
@@ -228,7 +228,7 @@ class Detector:
             id_list.append(track_id)
             # 获取boxes列表
             box_list.append(box)
-        print("to_infer")
+        # print("to_infer")
         label_list,conf_list = self.classify_infer(roi_list)
 
 
@@ -346,8 +346,8 @@ class Detector:
 
         # 方法，来源于主线程调取最新的结果
     def get_results(self):
-        with self._result_lock: # TODO:把锁去掉了,否则更新结果那里一直在等待锁,想个办法解决
-            return self._results  # 返回最新的结果列表
+        # with self._result_lock: # TODO:把锁去掉了,否则更新结果那里一直在等待锁,想个办法解决
+        return self._results  # 返回最新的结果列表
 
 
 
