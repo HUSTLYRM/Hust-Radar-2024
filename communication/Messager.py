@@ -6,7 +6,7 @@ class Messager:
     def __init__(self , cfg):
         # 发送部分
         self.sender = Sender(cfg)
-        self.double_effect_times = 1 # 第几次发送双倍易伤效果决策,第一次发送值为1，第二次发送值为2，每局最多只能发送到2,不能发送3
+        self.double_effect_times = 0 # 第几次发送双倍易伤效果决策,第一次发送值为1，第二次发送值为2，每局最多只能发送到2,不能发送3
 
         # 接收部分
         self.receiver = Receiver(cfg)
@@ -26,6 +26,8 @@ class Messager:
         self.last_send_map_time = time.time()
         self.last_update_time_left_time = time.time()
         self.last_main_loop_time = time.time()
+        self.first_big_buff_send = False
+        self.second_big_buff_send = False
         # 创建一个1-5,7,101-105,107的上次发送时间的字典
         if self.sender.my_color == "Blue":
             self.last_send_time_map = {1:time.time(),2:time.time(),3:time.time(),4:time.time(),5:time.time(),7:time.time()}
@@ -91,18 +93,33 @@ class Messager:
     # 发送自主决策信息
     def send_double_effect_decision(self):
         # 如果距离上次发送时间小于1s，不发送,time()的单位是s
-        if time.time() - self.last_send_double_effect_time < 1 or self.time_left == -1:
+        if time.time() - self.last_send_double_effect_time < 1 or self.time_left == -1 or self.double_effect_times == 2:
             # print("send_double_pass")
             return
+        # 手动触发，如果receiver里的self.send_double_flag为1，发送一次，如果为2，再发送一次
+        if self.receiver.send_double_flag == self.double_effect_times+1:
+            self.sender.send_radar_double_effect_info(self.double_effect_times+1)
+            time.sleep(0.1)
+            self.sender.send_radar_double_effect_info(self.double_effect_times+1)
+            self.double_effect_times += 1
+            self.last_send_double_effect_time = time.time()
 
         if self.time_left > 160: # 还剩3分钟第一次大符，开始打大符20s后才开始发送
             return
-        elif self.time_left <= 160 and self.time_left > 85:
-            self.sender.send_radar_double_effect_info(1)
+        elif self.time_left <= 160 and self.time_left > 100 and not self.first_big_buff_send:
+            self.sender.send_radar_double_effect_info(self.double_effect_times + 1)
+            time.sleep(0.1)
+            self.sender.send_radar_double_effect_info(self.double_effect_times + 1)
+            self.double_effect_times += 1
             self.last_send_double_effect_time = time.time()
-        elif self.time_left <= 85:
-            self.sender.send_radar_double_effect_info(2)
+            self.first_big_buff_send = True
+        elif self.time_left <= 85  and not self.second_big_buff_send:
+            self.sender.send_radar_double_effect_info(self.double_effect_times + 1)
+            time.sleep(0.1)
+            self.sender.send_radar_double_effect_info(self.double_effect_times + 1)
+            self.double_effect_times += 1
             self.last_send_double_effect_time = time.time()
+            self.second_big_buff_send = True
 
     # 更新剩余时间
     def update_time_left(self):

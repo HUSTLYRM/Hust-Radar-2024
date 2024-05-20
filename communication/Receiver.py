@@ -10,6 +10,9 @@ class Receiver:
         port_list = list(serial.tools.list_ports.comports())
         port = port_list[0].device
         self.port = port
+        self.send_double_flag = 0 # 初始是0
+        self.send_double_count_1 = 0 # 防止单次错误信息，计数
+        self.send_double_count_2 = 0  # 防止单次错误信息，计数
         self.bps = cfg['communication']['bps']
         self.timex = cfg['communication']['timex']
         self.ser = serial.Serial(self.port, self.bps, timeout=self.timex)
@@ -246,7 +249,48 @@ class Receiver:
             self.parse_mark_process(data)
         elif cmd_id_value == 0x020E:
             self.parse_double_effect_chance(data)
+        elif cmd_id_value == 0x0105: # 飞镖目标
+            self.parse_dart_target(data)
+
         # Add conditions for other cmd_ids
+
+    # 飞镖目标解析
+    '''
+    表 2-8 0x0105 
+表 2-8 0x0105 
+字节偏移量 大小 说明 
+0 1 己方飞镖发射剩余时间，单位：秒 
+ 
+字节偏移量 大小 说明 
+1 2 
+bit 0-1： 
+最近一次己方飞镖击中的目标，开局默认为0，1为击中前哨站，2为击中
+基地固定目标，3为击中基地随机目标 
+bit 2-4： 
+对方最近被击中的目标累计被击中计数，开局默认为0，至多为4 
+bit 5-6： 
+飞镖此时选定的击打目标，开局默认或未选定/选定前哨站时为0，选中基
+地固定目标为1，选中基地随机目标为2 
+bit 7-15：保留
+    '''
+    def parse_dart_target(self,data):
+        # data是小端格式的
+        hit_target = data[1] & 0x03
+        # 如果目标为1，则认为第一次想发送双倍易伤，如果为2，则认为第二次想发送双倍易伤
+
+        if hit_target == 1:
+            self.send_double_count_1 += 1
+            if self.send_double_count_1 > 1:
+                self.send_double_flag = hit_target
+            return
+        elif hit_target == 2:
+            self.send_double_count_2 += 1
+            if self.send_double_count_2 > 1:
+                self.send_double_flag = hit_target
+            return
+        else:
+            self.send_double_count_1 = 0
+            self.send_double_count_2 = 0
 
 
     # 比赛进行时间时间解析
