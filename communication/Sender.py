@@ -186,7 +186,7 @@ class Sender:
 
         tx_buff += frame_tail
         # print("all",len(tx_buff))
-
+        print(len(tx_buff))
         return tx_buff
 
     # 发送Info , 通用方法
@@ -196,7 +196,7 @@ class Sender:
     # 发送敌方车辆位置信息 , 调用方法
     def send_enemy_location(self , carID , x , y):
         tx_buff = self.generate_enemy_location_info(carID, x, y)
-        # print(tx_buff)
+        # print("send enemy location",tx_buff)
 
         self.send_info(tx_buff)
 
@@ -227,8 +227,8 @@ class Sender:
     def generate_sentinel_alert_info(self , carID , distance , quadrant):
         cmd_id = struct.pack('H', 0x0301)
         data_cmd_id = struct.pack('H', 0x0201)
-        sender_id = struct.pack('H', 109)
-        receiver_id = struct.pack('H', 101)
+        sender_id = struct.pack('H', self.my_id)
+        receiver_id = struct.pack('H', self.my_sentinel_id)
         data = data_cmd_id + sender_id + receiver_id + struct.pack('H', carID) + struct.pack('f', distance) + struct.pack('H', quadrant)
         data_len = len(data)
         frame_head = self.get_frame_header(data_len)
@@ -308,6 +308,8 @@ class Sender:
     # (3) 发送雷达自主决策信息,调用方法
     def send_radar_double_effect_info(self,times = 1):
         tx_buff =  self.generate_radar_double_effect_info(times)
+        print("send double",tx_buff)
+        print("send double length",len(tx_buff))
         self.send_info(tx_buff)
 
 

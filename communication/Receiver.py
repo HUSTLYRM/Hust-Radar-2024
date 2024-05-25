@@ -124,7 +124,7 @@ class Receiver:
             byte = self.ser.read()
             # print("finding sof")
             if byte == b'\xA5':
-                # print("find SOF")
+                print("find SOF")
                 return True
             # 整体再挂起0.01s,控制在50HZ
             time.sleep(0.01)
@@ -182,7 +182,7 @@ class Receiver:
             # 1+2+8+2(crc16) , 第2-3字节是uint16_t stage_remain_time;
             remaining_time_data = self.read_data(data_length+2)
             remaining_time = remaining_time_data[1]+remaining_time_data[2]*256
-            print(f"Remaining time: {remaining_time}")
+            # print(f"Remaining time: {remaining_time}")
             self.read_frame_tail()
 
             return True , remaining_time
@@ -191,6 +191,43 @@ class Receiver:
             # 514是0x
 
             return False
+    # 解析usb转串口由单片机整理发上来的数据
+    def parse_receiver_data(self):
+
+        while True:
+            # 控制帧率为10fps
+
+            if not self.working_flag:
+                print("not")
+                break
+            time_interval = time.time() - self.last_time_main_loop
+            if time_interval < 0.02:  # 主循环控制在50HZ
+                time.sleep(0.02 - (time_interval))
+            self.last_time_main_loop = time.time()
+
+            data_length, is_valid, header = self.parse_frame_header()
+            print("receiver one ")
+            if not is_valid:
+                print("Frame header CRC8 check failed")
+                continue
+
+            rest_data = self.ser.read(2 + data_length + 2)  # 包括命令码和CRC16
+
+            # 重构帧头+命令码+数据以计算crc16
+            tx_buff = header + rest_data[:-2]
+
+            # 计算帧尾是否正确
+            frame_tail_ori = rest_data[-2:]
+
+            # if not self.check_crc16(tx_buff , frame_tail_ori):
+            # print("CRC16 check failed")
+            # continue
+
+            cmd_id = rest_data[:2]  # 读取命令码
+            data = rest_data[2:-2]  # 读取数据
+
+            # 处理不同的命令
+            self.switch_method(cmd_id, data)
 
     # 解析帧头和cmd_id , 所有的东西都需要保留下来，因为要用来计算crc16
     def parse_cmd_id(self):
@@ -210,6 +247,7 @@ class Receiver:
 
 
             data_length, is_valid , header = self.parse_frame_header()
+            # print("receiver one ")
             if not is_valid:
                 print("Frame header CRC8 check failed")
                 continue
@@ -250,6 +288,7 @@ class Receiver:
         elif cmd_id_value == 0x020E:
             self.parse_double_effect_chance(data)
         elif cmd_id_value == 0x0105: # 飞镖目标
+            print("parse dart target")
             self.parse_dart_target(data)
 
         # Add conditions for other cmd_ids
@@ -275,7 +314,9 @@ bit 7-15：保留
     '''
     def parse_dart_target(self,data):
         # data是小端格式的
+        print(data)
         hit_target = data[1] & 0x03
+        print(f"Hit target: {hit_target}")
         # 如果目标为1，则认为第一次想发送双倍易伤，如果为2，则认为第二次想发送双倍易伤
 
         if hit_target == 1:

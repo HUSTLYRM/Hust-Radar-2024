@@ -5,6 +5,7 @@ from detect.Video import Video
 from detect.Capture import Capture
 from Lidar.Lidar import Lidar
 from Lidar.Converter import Converter
+import logging
 from Lidar.PointCloud import PcdQueue
 from Car.Car import *
 import numpy as np
@@ -21,31 +22,36 @@ import os
 # 创建一个长度为N的队列
 # tracemalloc.start()
 
-mode = "camera" # "video" or "camera"
-save_video = False # 是否保存视频
+mode = "video" # "video" or "camera"
+save_video = True # 是否保存视频
 round = 11 # 练赛第几轮
-save_csv_threshold = 1000 # 保存csv的轮数
-is_save_csv = True
+save_csv_threshold = 100 # 保存csv的轮数
+is_save_csv = False
+is_save_log = True
 
 if __name__ == '__main__':
     video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/train_record/0505/ori_data/video10.mp4"
-    detector_config_path = "configs/detector_config.yaml"
-    binocular_camera_cfg_path = "configs/bin_cam_config.yaml"
-    main_config_path = "configs/main_config.yaml"
-    converter_config_path = "configs/converter_config.yaml"
+    detector_config_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/detector_config.yaml"
+    binocular_camera_cfg_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/bin_cam_config.yaml"
+    main_config_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/main_config.yaml"
+    converter_config_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/converter_config.yaml"
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
     # 全局变量
-    my_color = main_cfg['global']['my_color']
+    global_my_color = main_cfg['global']['my_color']
     is_debug = main_cfg['global']['is_debug']
 
     # 设置保存路径
-    save_video_folder_path = "data/train_record/"  # 保存视频的文件夹
+    save_video_folder_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/train_record/"  # 保存视频的文件夹
     today = time.strftime("%Y%m%d", time.localtime()) # 今日日期，例如2024年5月6日则为20240506
     today_video_folder_path = save_video_folder_path + today + "/" # 今日的视频文件夹
     if not os.path.exists(today_video_folder_path): # 当天的视频文件夹不存在则创建
         os.makedirs(today_video_folder_path)
     video_name = time.strftime("%H%M%S", time.localtime()) # 视频名称，以时分秒命名，19：29：30则为192930
     video_save_path = today_video_folder_path + video_name + ".mp4" # 视频保存路径
+    log_save_path = today_video_folder_path + video_name + ".log" # log保存路径
+    logging.basicConfig(filename=log_save_path, filemode='a', level=logging.INFO, format='%(asctime)s - %(message)s')
+
+
     if save_video:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
         out = cv2.VideoWriter(video_save_path, fourcc, 12, (1920, 1280))  # 文件名，编码器，帧率，帧大小
@@ -57,7 +63,7 @@ if __name__ == '__main__':
     # 类初始化
     detector = Detector(detector_config_path)
     lidar = Lidar(main_cfg)
-    converter = Converter("test",converter_config_path)  # 传入的是path
+    converter = Converter(global_my_color,converter_config_path)  # 传入的是path
     carList = CarList(main_cfg)
     messager = Messager(main_cfg)
 
@@ -151,7 +157,7 @@ if __name__ == '__main__':
                     if lidar.pcdQueue.point_num == 0:
                         print("no pcd")
                         continue
-                    print("pcd num:",lidar.pcdQueue.point_num)
+                    # print("pcd num:",lidar.pcdQueue.point_num)
                     pc_all = lidar.get_all_pc()
 
                     # 创建总体点云pcd
@@ -171,8 +177,12 @@ if __name__ == '__main__':
                         # 结果：[xyxy_box, xywh_box , track_id , label ]
                         xyxy_box, xywh_box ,  track_id , label = result # xywh的xy是中心点的xy
 
-                        # 如果没有分类出是什么车，跳过
+                        # 如果没有分类出是什么车，或者是己方车辆，直接跳过
                         if label == "NULL":
+                            continue
+                        if global_my_color == "Red" and carList.get_car_id(label) < 100 and carList.get_car_id(label) != 7:
+                            continue
+                        if global_my_color == "Blue" and carList.get_car_id(label) > 100 and carList.get_car_id(label) != 107:
                             continue
                         # print("xyxy",xyxy_box)
                         # print("xywh",xywh_box)
@@ -257,7 +267,7 @@ if __name__ == '__main__':
                 # print("car_id:",car_id,"center_xy:",center_xy,"camera_xyz:",camera_xyz,"field_xyz:",field_xyz ,"color:",color , "is_valid:",is_valid)
                 # print("mc",my_color,"mc","c",color,"c")
                 # 将信息分两个列表存储
-                if color == my_color:
+                if color == global_my_color:
                     #print("same")
                     if track_id == -1:
                         continue
@@ -344,16 +354,26 @@ if __name__ == '__main__':
                 result_img = cv2.resize(result_img, (1920, 1280))
             if save_video:
                 out.write(result_img)
-            if is_save_csv:
-                counter += 1
-                if counter > save_csv_threshold :
-                    df = pd.DataFrame(all_detections, columns=['frame_id', 'track_id' ,'car_id', 'center_xy', 'camera_xyz', 'field_xyz', 'color' , 'is_valid'])
-                    # 将结果写入xlsx文件中，文件名使用保存视频文件名但后缀修改为xlsx
-                    xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
-                    df.to_excel(xlsx_file_name, index=False)
-                    # 重置all_detections
-                    all_detections = []
-                    counter = 0
+            if is_save_log:
+                print(all_detections)
+                for detection in all_detections:
+                    logging.info(', '.join(map(str, detection)))
+                all_detections = []
+            # 检测写入次数，超过阈值时写入Excel
+            # if is_save_csv and counter >= save_csv_threshold:
+            #     xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
+            #     with pd.ExcelWriter(xlsx_file_name, mode='a', engine='openpyxl') as writer:
+            #         # 这里使用了 mode='a'，表示追加数据，不会覆盖原始文件
+            #         # 如果文件不存在，将会创建新文件
+            #         df = pd.DataFrame(all_detections,
+            #                           columns=['frame_id', 'track_id', 'car_id', 'center_xy', 'camera_xyz', 'field_xyz',
+            #                                    'color', 'is_valid'])
+            #         df.to_excel(writer, index=False)
+            #
+            #     # 一旦数据写入完成，重置计数器和检测列表，为下一轮写入做准备
+            #     counter = 0
+            #     all_detections = []
+            # counter += 1
             if is_debug:
                 cv2.imshow("frame", result_img) # 不加3帧
             frame_id += 1
@@ -370,16 +390,26 @@ if __name__ == '__main__':
         # xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
         # df.to_excel(xlsx_file_name, index=False)
 
-
-        detector.stop()
-        detector.release()
-        capture.release()
-        if save_video:
-            out.release()
-        lidar.stop()
-        messager.stop()
-
         cv2.destroyAllWindows()
+        if save_video:
+            if out is not None:
+                out.release()
+        detector.stop_save_video()
+        print(1)
+        detector.stop()
+        print(2)
+        # detector.release()
+        print(3)
+        capture.release()
+        print(4)
+
+        print(4.5)
+        lidar.stop()
+        print(5)
+        messager.stop()
+        print(6)
+
+
 
 # snapshot = tracemalloc.take_snapshot()
 # top_stats = snapshot.statistics('lineno')

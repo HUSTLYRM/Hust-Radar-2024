@@ -1,4 +1,5 @@
 # 测试通信子线程是否正确运行
+import time
 
 from Messager import Messager
 from ruamel.yaml import YAML
@@ -19,9 +20,12 @@ if __name__ == '__main__':
     messager.start()
     while True:
         # 模拟一个敌方车辆信息
-        enemy_car_infos = [(101, (1, 1), (1, 1, 1), (1, 1, 1), 1)]
+
+        enemy_car_infos = [(1,1, (1, 1), (1, 1, 1), (18, 0.1 , 1), 1 ,True)]
         messager.update_enemy_car_infos(enemy_car_infos)
+        # messager.sender.send_radar_double_effect_info(1;g.)
         # 模拟一个哨兵预警信息
-        sentinel_alert_info = (1, 1, 1)
-        messager.update_sentinel_alert_info(sentinel_alert_info)
-        pass
+        # for i in range(0,7):
+        #     sentinel_alert_info = [101, 1, i]
+        #     messager.update_sentinel_alert_info(sentinel_alert_info)
+        time.sleep(0.1)
