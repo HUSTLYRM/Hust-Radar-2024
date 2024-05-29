@@ -7,6 +7,9 @@ from ultralytics import YOLO
 import math
 import time
 import threading
+import numpy as np
+# import cupy as cp
+import queue
 import os
 # 封装Tracker类，
 
@@ -18,6 +21,7 @@ class Detector:
 
         # flag
         self.is_record = self.cfg['is_record']
+        self.record_fps = self.cfg['record_fps']
         if self.is_record:
             save_video_folder_path = "data/train_record/"  # 保存视频的文件夹
             today = time.strftime("%Y%m%d", time.localtime())  # 今日日期，例如2024年5月6日则为20240506
@@ -27,7 +31,9 @@ class Detector:
             video_name = time.strftime("%H%M%S", time.localtime())  # 视频名称，以时分秒命名，19：29：30则为192930
             video_save_path = today_video_folder_path + video_name + ".avi"  # 视频保存路径
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            self.out = cv2.VideoWriter(video_save_path, fourcc, 12.0, (4024 , 3036))
+            self.out = cv2.VideoWriter(video_save_path, fourcc, self.record_fps, (4024 , 3036))
+            self.frame_queue = queue.Queue(maxsize=self.record_fps * 2)
+            self.save_thread = threading.Thread(target=self.save_video, args=(self.out,self.frame_queue,), daemon=True)
 
         # 检测模型
         print('Loading Car Model')
@@ -55,7 +61,9 @@ class Detector:
         # 设置计数器
         self.loop_times = 0
 
-        # 多线程操作
+        # 保存视频多线程操作
+        self.save_video_working_flag = False
+        self.get_first_frame_flag = False
         # 多线程操作
         self.threading = None
         self.working_flag = False
@@ -63,6 +71,23 @@ class Detector:
         # 初始化锁对象和结果列表
         self._result_lock = threading.Lock()
         self._results = [None , None]
+
+
+    # 保存视频线程开始工作
+    def start_save_video(self):
+        if self.is_record:
+            self.save_video_working_flag = True
+            self.save_thread.start()
+    # 保存视频线程停止工作
+    def stop_save_video(self):
+        if self.is_record:
+
+            self.save_video_working_flag = False
+            print("set stop done")
+            if self.out is not None:
+                self.out.release()
+                print("release done")
+            # self.save_thread.join()
 
     # 创建线程
     def create(self, capture):
@@ -81,8 +106,12 @@ class Detector:
     def stop(self):
         if self.init_flag:
             print("detect stop")
+
+
             self.working_flag = False
-            self.threading.join()
+
+
+            # self.threading.join()
 
     # 清除
     def release(self):
@@ -317,13 +346,41 @@ class Detector:
         self.loop_times = self.loop_times + 1
         return frame , zip_results
 
+    # 保存视频
+    def save_video(self, out, frame_queue):
+        last_time_save_video = time.time()
+        while True:
+            if not self.save_video_working_flag:
+                print("save video stop")
+                return
+            if not self.get_first_frame_flag:
+                print("waiting for first frame")
+                time.sleep(1)
+                continue
+            try:
+                frame = frame_queue.get(False) # 从队列中取出帧,如果队列为空，抛出异常
+            except queue.Empty:
+                print("queue empty")
+                time.sleep((1/self.record_fps))
+                continue
+            if frame is not None:
+                if time.time() - last_time_save_video < (1/self.record_fps):
+                    time.sleep((1/self.record_fps) - (time.time() - last_time_save_video))
+                print("write frame")
+                out.write(frame)
+                last_time_save_video = time.time()
+            else:
+                time.sleep((1/self.record_fps))
+                continue
+
     # 目标检测子线程
-        # 图像处理子线程方法
     def detect_thread(self, capture):
         start_time = time.time()
+        if self.is_record:
+            self.start_save_video()
         while True:  # 无限循环以持续处理图像
             if not self.working_flag:
-                return
+                break
             now = time.time()
             fps = 1 / (now - start_time)
             start_time = now
@@ -331,7 +388,8 @@ class Detector:
             frame = capture.get_frame()
             if frame is not None:
                 if self.is_record:
-                    self.out.write(frame)
+                    self.frame_queue.put(np.copy(frame))
+                    self.get_first_frame_flag = True
                 # 执行目标检测
                 infer_result = self.infer(frame)
 
@@ -339,6 +397,8 @@ class Detector:
                     with self._result_lock:
                         # print("update detect result")
                         self._results = infer_result  # 更新结果列表
+        if self.is_record:
+            self.stop_save_video()
 
 
 

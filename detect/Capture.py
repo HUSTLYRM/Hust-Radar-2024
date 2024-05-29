@@ -227,7 +227,11 @@ class Capture:
 
 
 
-
+        # 设置增益
+        _ret = _cam.MV_CC_SetFloatValue("Gain", cfg['param']['Gain'])
+        if _ret != 0:
+            print("[%s] set gamma fail! ret[0x%x]" % (_name, _ret))
+            sys.exit()
 
         # 设置 白平衡，用于图像颜色“不正”时
         _ret = _cam.MV_CC_SetEnumValueByString("BalanceWhiteAuto", cfg['param']['BalanceWhiteAuto'])

@@ -447,7 +447,7 @@ class Converter:
         # 体素降采样
         pcd = self.voxel_down_sample(pcd)
         # 去除离群点和噪声点
-        pcd = self.remove_outliers(pcd)
+        # pcd = self.remove_outliers(pcd)
 
         return pcd
 

@@ -2,8 +2,17 @@ from communication.Sender import Sender
 from communication.Receiver import Receiver
 import threading
 import time
+import logging
 class Messager:
     def __init__(self , cfg):
+        # log部分
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)  # 设置日志级别为INFO
+        handler = logging.FileHandler('/home/nvidia/RadarWorkspace/code/Radar_Develop/communication/send.log')  # 创建一个文件处理器，将日志写入'messager.log'文件中
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')  # 创建一个日志格式器
+        handler.setFormatter(formatter)  # 将日志格式器设置给文件处理器
+        self.logger.addHandler(handler)  # 将文件处理器添加到日志记录器
+        self.logger.info('Start sending')
         # 发送部分
         self.sender = Sender(cfg)
         self.double_effect_times = 0 # 第几次发送双倍易伤效果决策,第一次发送值为1，第二次发送值为2，每局最多只能发送到2,不能发送3
@@ -85,6 +94,7 @@ class Messager:
     # 发送敌方车辆位置
     def send_map(self, carID , x , y):
         self.sender.send_enemy_location(carID , x , y)
+        self.logger.info(f'Sent map info: carID={carID}, x={x}, y={y}')
         #
 
     # 发送哨兵预警角信息
@@ -164,7 +174,7 @@ class Messager:
 
             # 更新剩余时间
             self.update_time_left()
-
+            self.logger.info(f'Time left: {self.time_left}')
 
             # 发送自主决策信息
             # self.send_double_effect_decision()
@@ -243,9 +253,10 @@ class Messager:
                         # self.double_effect_times += 1
                         time.sleep(0.01)
                         self.sender.send_radar_double_effect_info(2)
-
-                        time.sleep(0.01)
+                        self.logger.info('Sent double effect info: 2')
+                        time.sleep(0.05)
                         self.sender.send_radar_double_effect_info(1)
+                        self.logger.info('Sent double effect info: 1')
                         # self.double_effect_times += 1
                         self.last_send_double_effect_time = time.time()
             # # 发送不可信的车辆信息

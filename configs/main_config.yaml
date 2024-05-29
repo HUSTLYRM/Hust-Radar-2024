@@ -35,12 +35,16 @@ car:
   life_span: 20 # 20帧若未刷新则认为不可信
 
 lidar:
-  height_threshold: 1.4 # 还没有量，激光雷达如果点比负1.4小，则认为在地面，不要
+  height_threshold: 5.5 # 还没有量，激光雷达如果点比负1.4小，则认为在地面，不要
   min_distance: 0.4 # 去除距离在这个范围以内的接收点云
-  max_distance: 32 # 去除距离在这个范围以外的接收点云
+  max_distance: 40 # 去除距离在这个范围以外的接收点云
   lidar_topic_name: "/livox/lidar" # 点云发布话题名字
 
 communication:
   port: '/dev/ttyUSB0' # 串口
   bps: 115200 # 波特率
   timex: 0.01 # 超时时间
+
+others:
+  is_vs_qd: False # 打青岛大学特殊版本
+  is_vs_hg: False # 打合肥工业大学特殊版本

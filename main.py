@@ -22,7 +22,7 @@ import os
 # 创建一个长度为N的队列
 # tracemalloc.start()
 
-mode = "video" # "video" or "camera"
+mode = "camera" # "video" or "camera"
 save_video = True # 是否保存视频
 round = 11 # 练赛第几轮
 save_csv_threshold = 100 # 保存csv的轮数
@@ -49,8 +49,15 @@ if __name__ == '__main__':
     video_name = time.strftime("%H%M%S", time.localtime()) # 视频名称，以时分秒命名，19：29：30则为192930
     video_save_path = today_video_folder_path + video_name + ".mp4" # 视频保存路径
     log_save_path = today_video_folder_path + video_name + ".log" # log保存路径
-    logging.basicConfig(filename=log_save_path, filemode='a', level=logging.INFO, format='%(asctime)s - %(message)s')
-
+    # log部分
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)  # 设置日志级别为INFO
+    handler = logging.FileHandler(
+        log_save_path)  # 创建一个文件处理器，将日志写入'messager.log'文件中
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')  # 创建一个日志格式器
+    handler.setFormatter(formatter)  # 将日志格式器设置给文件处理器
+    logger.addHandler(handler)  # 将文件处理器添加到日志记录器
+    logger.info('Start main')
 
     if save_video:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
@@ -355,9 +362,10 @@ if __name__ == '__main__':
             if save_video:
                 out.write(result_img)
             if is_save_log:
-                print(all_detections)
-                for detection in all_detections:
-                    logging.info(', '.join(map(str, detection)))
+                print("save log")
+                # for detection in all_detections:
+                #     print(detection[2],detection[3] , detection[4].,detection[5],detection[6],detection[7])
+                #     logging.info(str(detection))
                 all_detections = []
             # 检测写入次数，超过阈值时写入Excel
             # if is_save_csv and counter >= save_csv_threshold:

@@ -9,4 +9,5 @@ params:
   stage_two_conf: 0.5
   life_time: 90 # 生命周期
 
-is_record: False
+is_record: True
+record_fps: 6
