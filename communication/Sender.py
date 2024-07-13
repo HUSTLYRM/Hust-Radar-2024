@@ -19,7 +19,7 @@ class Sender:
             self.enemy_sentinel_id = 7
 
         port_list = list(serial.tools.list_ports.comports())
-        port = port_list[0].device
+        port = port_list[1].device
         self.port = port
         self.bps = cfg['communication']['bps']
         self.timex = cfg['communication']['timex']

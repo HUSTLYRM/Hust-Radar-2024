@@ -8,7 +8,7 @@ class Receiver:
     def __init__(self,cfg):
         # 串口配置
         port_list = list(serial.tools.list_ports.comports())
-        port = port_list[0].device
+        port = port_list[1].device
         self.port = port
         self.send_double_flag = 0 # 初始是0
         self.send_double_count_1 = 0 # 防止单次错误信息，计数

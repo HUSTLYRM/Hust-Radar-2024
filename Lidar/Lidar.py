@@ -58,7 +58,7 @@ class Lidar:
         '''
         结束子线程
         '''
-        if not self.working_flag and self.threading is not None:
+        if self.working_flag and self.threading is not None: # 关闭时写错了之前，写成了if not self.working_flag
             self.stop_event.set()
             rospy.signal_shutdown('Stop requested')
             self.working_flag = False
