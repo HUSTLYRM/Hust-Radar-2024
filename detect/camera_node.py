@@ -9,6 +9,7 @@ import time
 import threading
 import numpy as np
 from collections import deque
+from Tools.Tools import Tools
 
 class CameraNode:
     def __init__(self):
@@ -23,10 +24,13 @@ class CameraNode:
         self.image_queue = deque(maxlen=10)
 
         # 话题名称
-        self.camera_topic_name = "/hikrobot_camera/rgb" # hik_camera/image # /hikrobot_camera/rgb
+        self.camera_topic_name = "/image" # hik_camera/image # /hikrobot_camera/rgb
 
         # bridge
         self.bridge = CvBridge()
+
+        # 录制
+        self.out = cv2.VideoWriter(f'/home/nvidia/RadarWorkspace/data/{Tools.get_time_stamp()}.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 20, (4024, 3036))
 
         if not self.init_flag:
             # 当还未有一个节点时，初始化一个节点
@@ -57,7 +61,8 @@ class CameraNode:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             print(type(cv_image))
             print("after convert")
-            cv_image = cv2.resize(cv_image, (1920, 1080))
+            # cv_image = cv2.resize(cv_image, (1920, 1080))
+            self.out.write(cv_image)
             cv2.imshow("camera", cv_image)
             cv2.waitKey(1)
 

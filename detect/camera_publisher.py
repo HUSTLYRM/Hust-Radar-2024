@@ -21,7 +21,7 @@ def main_loop():
     # cv2.imshow("camera", first_img)
 
     # 创建一个发布器
-    pub = rospy.Publisher('/hikrobot_camera/rgb', Image, queue_size=10)
+    pub = rospy.Publisher('/image', Image, queue_size=10)
 
     # 创建一个CvBridge对象
     bridge = CvBridge()
