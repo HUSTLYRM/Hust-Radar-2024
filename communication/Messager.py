@@ -52,6 +52,8 @@ class Messager:
             print("color error , check upper character")
             exit(0)
 
+        # 创建一个
+
 
 
 
