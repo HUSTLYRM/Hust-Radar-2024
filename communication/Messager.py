@@ -3,6 +3,10 @@ from communication.Receiver import Receiver
 import threading
 import time
 import logging
+from shapely.geometry import Point, Polygon
+import numpy as np
+import cv2
+
 class Messager:
     def __init__(self , cfg):
         # log部分
@@ -33,6 +37,16 @@ class Messager:
         self.sentinel_lock = threading.Lock() # 哨兵预警信息锁
         # 次数记录
         self.hero_enter_times = 0
+        # 我方颜色
+        self.my_color = self.sender.my_color
+
+        if self.my_color == "Red": # 红方是1-7 ， 蓝方是101-107
+            self.enemy_hero_id = 101
+        elif self.my_color == "Blue":
+            self.enemy_hero_id = 1
+        else:
+            print("检查main_config里己方颜色是否大写！")
+            exit(0)
 
         # 线程
         self.threading = threading.Thread(target=self.main_loop , daemon=True)
@@ -52,7 +66,18 @@ class Messager:
             print("color error , check upper character")
             exit(0)
 
-        # 创建一个
+        # 创建一个区域列表
+
+        self.area_list_len = cfg["area"][self.my_color]["length"]
+        self.area_list = []
+        for i in range(self.area_list_len):
+            area = cfg["area"][self.my_color][f"area{i}"]
+            self.area_list.append(area)
+
+        # for area in self.area_list:
+        #     print(area)
+
+
 
 
 
@@ -64,7 +89,67 @@ class Messager:
         # flag
         self.working_flag = False
 
+    def convert_to_image_coords(self , x, y, img_width, img_height, real_width, real_height):
+        img_x = int((x / real_width) * img_width)
+        img_y = int(img_height - (y / real_height) * img_height)
+        return img_x, img_y
 
+    def show_areas(self, image):
+        # Function to convert real-world coordinates to image coordinates
+
+
+        if self.my_color == "Red":
+            color = (255, 0, 0)
+        elif self.my_color == "Blue":
+            color = (0, 0, 255)
+        else:
+            color = (0, 255, 0)
+        enemy_car_infos = self.enemy_car_infos
+
+        hero_x = -1
+        hero_y = -1
+
+        for enemy_car_info in enemy_car_infos:
+            # 提取car_id和field_xyz
+            track_id, car_id, field_xyz, is_valid = enemy_car_info[0], enemy_car_info[1], enemy_car_info[4],enemy_car_info[6]
+
+            if car_id == self.enemy_hero_id:
+                hero_x = field_xyz[0]
+                hero_y = field_xyz[1]
+                pixel_coord = self.convert_to_image_coords(hero_x, hero_y, image.shape[1], image.shape[0], 28, 15)
+                pixel_x = pixel_coord[0]
+                pixel_y = pixel_coord[1]
+                cv2.putText(image, f'{car_id}', (int(pixel_x), int(pixel_y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+
+        # Draw the areas
+        for points in self.area_list:
+            # 检查敌方hero的field_xyz是否在区域内
+
+
+
+            img_points = [self.convert_to_image_coords(x, y, image.shape[1], image.shape[0], 28, 15) for x, y in points]
+            img_points = np.array(img_points, dtype=np.int32)
+            cv2.polylines(image, [img_points], isClosed=True, color=color, thickness=2)
+            if self.is_in_areas(hero_x , hero_y):
+                # 将本区域填充为color色
+                cv2.fillPoly(image, [img_points], color)
+
+        # Display the image
+        cv2.imshow('areas', image)
+        cv2.waitKey(1)
+        # cv2.destroyAllWindows()
+
+    # 判断车辆是否在指定区域内
+    def is_in_areas(self, x, y):
+        if x < 0 or y < 0 :
+            return False
+        point = Point(x, y)
+        for area in self.area_list:
+            polygon = Polygon(area)
+            if polygon.contains(point):
+                return True
+        return False
 
     # 开启线程
     def start(self):
