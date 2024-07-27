@@ -164,38 +164,95 @@ class Sender:
         frame_header = _frame_header + struct.pack('B', self.get_crc8_check_byte(_frame_header))
         return frame_header
 
-
-    # 创建敌方车辆小地图信息 , 中间方法
-    def generate_enemy_location_info(self, carID, x, y):
-
+    # 创建新地方车辆小地图信息，注意单位从m变为了cm
+    # 新小地图信息包格式：
+    '''
+        雷达可通过常规链路向己方所有选手端发送对方机器人的坐标数据，该位置会在己方选手端小地图显示。
+    表 3-2 命令码 ID：0x0305
+    字节偏移量 大小 说明
+    0 2 英雄机器人 x 位置坐标，单位：cm
+    2 2 英雄机器人 y 位置坐标，单位：cm
+    4 2 工程机器人 x 位置坐标，单位：cm
+    6 2 工程机器人 y 位置坐标，单位：cm
+    8 2 3 号步兵机器人 x 位置坐标，单位：cm
+    10 2 3 号步兵机器人 y 位置坐标，单位：cm
+    12 2 4 号步兵机器人 x 位置坐标，单位：cm
+    14 2 4 号步兵机器人 y 位置坐标，单位：cm
+    16 2 5 号步兵机器人 x 位置坐标，单位：cm
+    18 2 5 号步兵机器人 y 位置坐标，单位：cm
+    20 2 哨兵机器人 x 位置坐标，单位：cm
+    22 2 哨兵机器人 y 位置坐标，单位：cm
+    备注
+    当 x、y 超出边界时显示在对应边缘处，
+    当 x、y 均为 0 时，视为未发送此机器人坐标。
+    typedef _packed struct
+    {
+    uint16_t hero_position_x;
+    uint16_t hero_position_y;
+    uint16_t engineer_position_x;
+    uint16_t engineer_position_y;
+    uint16_t infantry_3_position_x;
+    uint16_t infantry_3_position_y;
+    uint16_t infantry_4_position_x;
+    uint16_t infantry_4_position_y;
+    uint16_t infantry_5_position_x;
+    uint16_t infantry_5_position_y;
+    uint16_t sentry_position_x;
+    uint16_t sentry_position_y;
+    } map_robot_data_t;
+    '''
+    def generate_enemy_location_info(self , infos): # for info in infos 有6个, info是一个list，里面为[x , y] , 单位为m，需要转换为cm并以uint16_t形式打包
         cmd_id = struct.pack('H', 0x0305)
-
-        data = struct.pack('H', carID) + struct.pack('ff', x, y)
+        # 初始化data
+        data = b''
+        for info in infos:
+            data += struct.pack('HH', int(info[0]*100), int(info[1]*100)) # 单位转换为cm
 
         data_len = len(data)
-        # print("data_len",data_len)
-        # print(data_len)
+
         frame_head = self.get_frame_header(data_len)
-        # print("head:",frame_head)
 
         tx_buff = frame_head + cmd_id + data
-        # print("tx_buff",len(tx_buff))
 
         frame_tail = self.get_frame_tail(tx_buff)
-        # print("frame_tail",len(frame_tail))
 
         tx_buff += frame_tail
-        # print("all",len(tx_buff))
-        print(len(tx_buff))
+
         return tx_buff
+
+
+
+    # 创建敌方车辆小地图信息 , 中间方法
+    # def generate_enemy_location_info(self, carID, x, y):
+    #
+    #     cmd_id = struct.pack('H', 0x0305)
+    #
+    #     data = struct.pack('H', carID) + struct.pack('ff', x, y)
+    #
+    #     data_len = len(data)
+    #     # print("data_len",data_len)
+    #     # print(data_len)
+    #     frame_head = self.get_frame_header(data_len)
+    #     # print("head:",frame_head)
+    #
+    #     tx_buff = frame_head + cmd_id + data
+    #     # print("tx_buff",len(tx_buff))
+    #
+    #     frame_tail = self.get_frame_tail(tx_buff)
+    #     # print("frame_tail",len(frame_tail))
+    #
+    #     tx_buff += frame_tail
+    #     # print("all",len(tx_buff))
+    #     print(len(tx_buff))
+    #     return tx_buff
 
     # 发送Info , 通用方法
     def send_info(self,tx_buff):
         self.ser.write(tx_buff)
 
     # 发送敌方车辆位置信息 , 调用方法
-    def send_enemy_location(self , carID , x , y):
-        tx_buff = self.generate_enemy_location_info(carID, x, y)
+    def send_enemy_location(self , infos):
+        tx_buff = self.generate_enemy_location_info(infos)
         # print("send enemy location",tx_buff)
 
         self.send_info(tx_buff)

@@ -30,13 +30,14 @@ if __name__ == '__main__':
     messager.start()
     while True:
         # 模拟一个敌方车辆信息 , y在2-15 ，x在10-20 , y间隔0.1 ， x间隔0.2
-        for y in range(2, 15):
-            for x in range(10 , 20):
+        for x in range(10, 20):
+            for y in range(2, 15):
 
-                enemy_car_infos = [(1,1, (1, 1), (1, 1, 1), (x, y , 1), 1 ,True)]
+
+                enemy_car_infos = [(1,101, (1, 1), (1, 1, 1), (x, y , 1), 1 ,True)]
                 messager.update_enemy_car_infos(enemy_car_infos)
-                show_image = copy.deepcopy(image)
-                messager.show_areas(image=show_image)
+                # show_image = copy.deepcopy(image)
+                # messager.hero_alert(image=show_image)
                 time.sleep(0.1)
 
         # enemy_car_infos = [(1,1, (1, 1), (1, 1, 1), (x, y , 1), 1 ,True)]

@@ -12,10 +12,13 @@ class RadarLog:
             os.makedirs(self.log_dir)
 
     def log(self, message):
-        with open(self.log_path, 'a') as log_file:
-            # 为每条日志添加时间戳
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-            log_file.write(f'[{timestamp}] {message}\n')
+        try:
+            with open(self.log_path, 'a') as log_file:
+                # 为每条日志添加时间戳
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                log_file.write(f'[{timestamp}] {message}\n')
+        except Exception as e:
+            print(f"Error: {e}")
 
 # 使用示例
 if __name__ == "__main__":
