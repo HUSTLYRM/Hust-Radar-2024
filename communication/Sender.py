@@ -5,7 +5,7 @@ import struct
 from ruamel.yaml import YAML
 import time
 class Sender:
-    def __init__(self , cfg):
+    def __init__(self , cfg ):
         # 我方颜色
         self.my_color = cfg['global']['my_color']
 
@@ -265,6 +265,7 @@ class Sender:
     # (2).子内容ID为0x0202时，发送给哨兵在我的赛场坐标系下哨兵的坐标和所有检测到敌方车辆的赛场坐标系信息
     # 按照 哨兵 ， 敌方1号 ， 敌方2号 ， 敌方3号 ， 敌方4号 ， 敌方5号 ， 敌方7号的顺序发送
     # 每一个车辆的信息为一个B(unsigned char -> 1 byte)为信息是否有效 , 0x00为无效，0x01为有效，一个f(float -> 4 bytes)为x坐标，一个f(float -> 4 bytes)为y坐标
+    # (3).子内容ID为0x0203时，发送英雄预警，没来发0x00，来了发0xff
     '''
 字节偏移量 大小    说明             备注
 0         2    子内容 ID   需为开放的子内容 ID
