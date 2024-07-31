@@ -1,11 +1,25 @@
+import multiprocessing
+
 import serial
 import struct
 import time
 import threading
+from multiprocessing import Value,Process
+from Tools.Tools import Tools
 from ruamel.yaml import YAML
 
 class Receiver:
-    def __init__(self,cfg):
+    def __init__(self,cfg ,shared_is_activating_double_effect , shared_enemy_health_list , shared_enemy_marked_process_list , shared_have_double_effect_times , shared_time_left):
+        # 共享内存变量
+        self.shared_is_activating_double_effect = shared_is_activating_double_effect
+        self.shared_enemy_health_list = shared_enemy_health_list
+        self.shared_enemy_marked_process_list = shared_enemy_marked_process_list
+        self.shared_have_double_effect_times = shared_have_double_effect_times
+        self.shared_time_left = shared_time_left
+
+        # 全局变量
+        self.my_color = cfg['global']['my_color']
+
         # 串口配置
         port_list = list(serial.tools.list_ports.comports())
         port = port_list[1].device
@@ -16,6 +30,7 @@ class Receiver:
         self.bps = cfg['communication']['bps']
         self.timex = cfg['communication']['timex']
         self.ser = serial.Serial(self.port, self.bps, timeout=self.timex)
+        self.fps = 100 # 控制主线程帧率为100Hz
         # CRC表
         self.CRC8_TABLE = [
             0x00, 0x5e, 0xbc, 0xe2, 0x61, 0x3f, 0xdd, 0x83, 0xc2, 0x9c, 0x7e, 0x20, 0xa3, 0xfd, 0x1f, 0x41,
@@ -73,17 +88,22 @@ class Receiver:
 
         # 数据存储
         self.time_left = -1 # 剩余时间
+        # 共享内存变量
+        self.already_send_double_effect = Value('i', 0) # 是否已经发送了双倍概率
 
         # 线程
         self.threading = threading.Thread(target=self.parse_cmd_id, daemon=True)
         self.working_flag = False
         self.last_time_main_loop = time.time() # 保持一秒一帧
 
+        # 接收进程
+        self.process = Process(target=self.parse_cmd_id, daemon=True)
+
     # 线程创建
     # 线程开启
     def start(self):
         self.working_flag = True
-        self.threading.start()
+        self.process.start()
     # 线程关闭
     def stop(self):
         self.working_flag = False
@@ -241,9 +261,8 @@ class Receiver:
                 break
 
 
-            if time.time() - self.last_time_main_loop < 0.02: # 主循环控制在50HZ
-                time.sleep( 0.02-(time.time() - self.last_time_main_loop))
-            self.last_time_main_loop = time.time()
+
+            self.last_time_main_loop = Tools.frame_control(100, self.last_time_main_loop)
 
 
             data_length, is_valid , header = self.parse_frame_header()
@@ -277,16 +296,16 @@ class Receiver:
         # print(f"cmd_id: {cmd_id_value}")
         if cmd_id_value == 0x0001: # 比赛进行时间解析
             self.process_game_status(data)
-            if time.time() - self.last_time_main_loop < 0.01:
-                # print("receiver sleep")
-                time.sleep(0.01 - ( time.time() - self.last_time_main_loop))
-            self.last_time = time.time()
+            # if time.time() - self.last_time_main_loop < 0.01:
+            #     # print("receiver sleep")
+            #     time.sleep(0.01 - ( time.time() - self.last_time_main_loop))
+            # self.last_time = time.time()
         elif cmd_id_value == 0x0003:
             self.parse_robot_status(data)
         elif cmd_id_value == 0x020C:
             self.parse_mark_process(data)
         elif cmd_id_value == 0x020E:
-            self.parse_double_effect_chance(data)
+            self.parse_double_effect(data)
         elif cmd_id_value == 0x0105: # 飞镖目标
             print("parse dart target")
             self.parse_dart_target(data)
@@ -337,24 +356,94 @@ bit 7-15：保留
     # 比赛进行时间时间解析
     def process_game_status(self,data):
         time_left = data[1]+data[2]*256
-        self.time_left = time_left
+        self.shared_time_left = time_left
         print(f"Time left: {time_left}")
 
     # 获取比赛剩余时间
     def get_time_left(self):
         return self.time_left
 
-    # 己方机器人血量信息
+    # 敌方机器人血量信息
     def parse_robot_status(self,data):
-        pass
+        '''
+        :param data:
+        typedef _packed struct
+        {
+          uint16_t red_1_robot_HP;
+          uint16_t red_2_robot_HP;
+          uint16_t red_3_robot_HP;
+          uint16_t red_4_robot_HP;
+          uint16_t red_5_robot_HP;
+          uint16_t red_7_robot_HP;
+          uint16_t red_outpost_HP;
+          uint16_t red_base_HP;
+          uint16_t blue_1_robot_HP;
+          uint16_t blue_2_robot_HP;
+          uint16_t blue_3_robot_HP;
+          uint16_t blue_4_robot_HP;
+          uint16_t blue_5_robot_HP;
+          uint16_t blue_7_robot_HP;
+          uint16_t blue_outpost_HP;
+          uint16_t blue _base_HP;
+        }game_robot_HP_t;
+        :return: list of enemy_hp , like [100,100,100,100,100,100]
+        '''
+        if self.my_color == 'Red':
+            enemy_hp = [data[2 * i + 8] + data[2 * i + 9] * 256 for i in range(6)]
+        else:
+            enemy_hp = [data[2 * i] + data[2 * i + 1] * 256 for i in range(6)]
+
+        # 更新共享内存
+        for i in range(6):
+            self.shared_enemy_health_list[i] = enemy_hp[i]
+
+        return enemy_hp
 
     # 标记进度
     def parse_mark_process(self,data):
-        pass
+        '''
+
+        :param data:
+        typedef _packed struct
+{
+  uint8_t mark_hero_progress;
+  uint8_t mark_engineer_progress;
+  uint8_t mark_standard_3_progress;
+  uint8_t mark_standard_4_progress;
+  uint8_t mark_standard_5_progress;
+  uint8_t mark_sentry_progress;
+}radar_mark_data_t;
+        :return: 一个list，包含了所有的标记进度，如[0,0,0,100,100,100]
+        '''
+        mark_process = [data[i] for i in range(6)]
+        # Update the shared memory list
+        for i in range(6):
+            self.shared_enemy_marked_process_list[i] = mark_process[i]
+
+        return mark_process
+
 
     # 自主决策信息，是否拥有双倍易伤机会
-    def parse_double_effect_chance(self,data):
-        pass
+    def parse_double_effect(self, data):
+        """
+        解析雷达信息数据并更新相关变量。
+
+        :param data: 从串口接收到的原始数据。
+        :return: 一个包含双倍易伤机会和双倍易伤是否激活的元组。
+        """
+        radar_info = data[0]
+
+        # 提取位 0-1 作为双倍易伤机会
+        double_effect_chance = radar_info & 0x03
+
+        # 提取位 2 作为双倍易伤激活状态
+        is_double_effect_active = (radar_info >> 2) & 0x01
+
+        # 更新共享内存或类变量
+        self.shared_is_activating_double_effect.value = is_double_effect_active
+        self.shared_have_double_effect_times.value = double_effect_chance
+
+        return double_effect_chance, is_double_effect_active
 
 
 
