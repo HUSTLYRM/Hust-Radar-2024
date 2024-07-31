@@ -370,6 +370,36 @@ class Sender:
         print("send double length",len(tx_buff))
         self.send_info(tx_buff)
 
+    # (4) 组织英雄预警信息,中间方法 , is_alert为true的时候发0xff，false的时候发0x00
+    def generate_hero_alert_info(self , is_alert):
+        cmd_id = struct.pack('H', 0x0301)
+        data_cmd_id = struct.pack('H', 0x0203)
+        sender_id = struct.pack('H', self.my_id)
+        receiver_id = struct.pack('H', self.my_sentinel_id)
+        data = data_cmd_id + sender_id + receiver_id
+        if is_alert:
+            data += struct.pack('B', 0xff)
+        else:
+            data += struct.pack('B', 0x00)
+        data_len = len(data)
+        frame_head = self.get_frame_header(data_len)
+
+        tx_buff = frame_head + cmd_id + data
+
+        frame_tail = self.get_frame_tail(tx_buff)
+
+        tx_buff += frame_tail
+
+        return tx_buff
+
+    # (4) 发送英雄预警信息,调用方法
+    def send_hero_alert_info(self , is_alert):
+        tx_buff = self.generate_hero_alert_info(is_alert)
+        self.send_info(tx_buff)
+
+
+
+
 
     # 发送机器人交互数据0x0301
     '''
