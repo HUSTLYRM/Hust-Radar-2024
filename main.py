@@ -22,7 +22,7 @@ import os
 # 创建一个长度为N的队列
 # tracemalloc.start()
 
-mode = "camera" # "video" or "camera"
+mode = "video" # "video" or "camera"
 save_video = True # 是否保存视频
 round = 11 # 练赛第几轮
 save_csv_threshold = 100 # 保存csv的轮数
@@ -30,7 +30,7 @@ is_save_csv = False
 is_save_log = True
 
 if __name__ == '__main__':
-    video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/train_record/0505/ori_data/video10.mp4"
+    video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/华科vs哈工大round1_原视频.avi"
     detector_config_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/detector_config.yaml"
     binocular_camera_cfg_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/bin_cam_config.yaml"
     main_config_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/main_config.yaml"
@@ -61,21 +61,23 @@ if __name__ == '__main__':
 
     if save_video:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
-        out = cv2.VideoWriter(video_save_path, fourcc, 12, (1920, 1280))  # 文件名，编码器，帧率，帧大小
+        out = cv2.VideoWriter(video_save_path, fourcc, 24, (1920, 1280))  # 文件名，编码器，帧率，帧大小
 
 
 
-
+    print("start")
 
     # 类初始化
     detector = Detector(detector_config_path)
+    print("detector init")
     lidar = Lidar(main_cfg)
+    print("lidar init")
     converter = Converter(global_my_color,converter_config_path)  # 传入的是path
+    print("converter init")
     carList = CarList(main_cfg)
+    print("carList init")
     messager = Messager(main_cfg)
-
-
-
+    print("messager init")
 
     if mode == "video":
         capture = Video(video_path)
@@ -86,9 +88,10 @@ if __name__ == '__main__':
         exit(1)
 
 
+    # print("capture init")
     # 场地解算初始化
     converter.camera_to_field_init(capture)
-
+    print("converter init")
     start_time = time.time()
     # fps计算
     N = 10
@@ -143,7 +146,7 @@ if __name__ == '__main__':
             # 计算平均FPS
             avg_fps = sum(fps_queue) / len(fps_queue)
 
-            # print("fps:",avg_fps)
+            print("fps:",avg_fps)
 
             # 获得推理结果
             # print("try to get infer result")
@@ -160,7 +163,7 @@ if __name__ == '__main__':
                 result_img, results = infer_result
 
                 if results is not None:
-                    print("results is not none")
+                    # print("results is not none")
                     if lidar.pcdQueue.point_num == 0:
                         print("no pcd")
                         continue
@@ -195,7 +198,7 @@ if __name__ == '__main__':
                         # print("xywh",xywh_box)
 
                         # 获取新xyxy_box , 原来是左上角和右下角，现在想要中心点保持不变，宽高设为原来的一半，再计算一个新的xyxy_box,可封装
-                        div_times = 2
+                        div_times = 1.1
                         new_w = xywh_box[2] / div_times
                         new_h = xywh_box[3] / div_times
                         new_xyxy_box = [xywh_box[0] - new_w / 2, xywh_box[1] - new_h / 2, xywh_box[0] + new_w / 2, xywh_box[1] + new_h / 2]
