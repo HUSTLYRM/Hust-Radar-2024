@@ -9,6 +9,7 @@ import numpy as np
 import cv2
 from Log.Log import RadarLog
 import copy
+from Tools.Tools import Tools
 
 class Messager:
     def __init__(self , cfg):
@@ -28,8 +29,8 @@ class Messager:
         self.double_effect_times = 0 # 第几次发送双倍易伤效果决策,第一次发送值为1，第二次发送值为2，每局最多只能发送到2,不能发送3
 
         # 特殊flag
-        self.super_flag = cfg['others']['is_vs_qd'] # 打青岛大学的特殊flag
-        self.is_vs_hg = cfg['others']['is_vs_hg']
+        # self.super_flag = cfg['others']['is_vs_qd'] # 打青岛大学的特殊flag
+        # self.is_vs_hg = cfg['others']['is_vs_hg']
 
         # 接收部分
         self.receiver = Receiver(cfg, self.shared_is_activating_double_effect , self.shared_enemy_health_list , self.shared_enemy_marked_process_list , self.shared_have_double_effect_times , self.shared_time_left)
@@ -128,6 +129,7 @@ class Messager:
         self.update_shared_mark_progress()
         self.update_shared_have_double_effect_times()
         self.update_shared_time_left()
+
     # 更新敌方血量信息
     def update_shared_enemy_health_info(self):
         self.enemy_health_info = list(self.shared_enemy_health_list)
@@ -289,6 +291,11 @@ class Messager:
         self.sender.send_sentinel_alert_info(carID , distance , quadrant)
         # print("send_sentinel_alert_info")
 
+    # 发送哨兵预警英雄信息
+    def send_sentinel_alert_hero(self):
+        if self.is_alert_hero:
+            self.sender.send_hero_alert_info()
+
     # 发送自主决策信息
     # def send_double_effect_decision(self):
     #     # 如果距离上次发送时间小于1s，不发送,time()的单位是s
@@ -321,10 +328,10 @@ class Messager:
     #     if self.double_effect_times >= 2:
     #         self.double_effect_times = 1
 
-    # 更新flag
+    # 更新flag，将共享内存中更新的信息解析，更新本地flag
     def update_flags(self):
         # 更新双倍易伤相关flag
-        self.update_double_effect_flags()
+        # self.update_double_effect_flags()
         # 更新标记进度
         self.parse_mark_process()
         # 更新血量信息
@@ -380,6 +387,7 @@ class Messager:
             self.standard_5_is_marked,
             self.sentinel_is_marked
         ])
+        self.logger.log(f'Marked situation: {self.mark_progress}')
 
 
 
@@ -461,6 +469,8 @@ class Messager:
         except Exception as e:
             self.logger.log(f"Read map image error: {e}")
             print(f"Read map image error: {e}")
+            # 随便创建一个全白的map_image
+            map_image = np.ones((480, 640, 3), np.uint8) * 255
 
         while True:
             # 线程判断，主体代码不能超过这里
@@ -469,15 +479,12 @@ class Messager:
                 break
             # 主体代码在这里以下------------------------------------------------
             # print("time left",self.time_left)
-            time_interval_cal = time.time() - self.last_main_loop_time
-            if time_interval_cal < 0.1:
-                print("first sleep time:",0.1 - time_interval_cal)
-                time.sleep(0.1 - time_interval_cal)
-            self.last_main_loop_time = time.time()
+            self.last_main_loop_time = Tools.frame_control(self.last_main_loop_time, 10)
 
-            # 更新剩余时间
-            self.update_shared_time_left()
-            self.logger.log(f'Time left: {self.time_left}')
+            # 更新共享内存变量
+            self.update_shared_info()
+            # 解析本地flag，更新flag
+            self.update_flags()
 
             # 更新英雄预警
             try:
@@ -490,10 +497,10 @@ class Messager:
 
 
             # 发送自主决策信息
-            # self.send_double_effect_decision()
+            self.send_double_effect_decision()
 
-            # 发送哨兵通信信息
-            self.send_sentry_alert_angle()
+            # 发送哨兵预警信息
+            self.send_sentinel_alert_hero()
 
             # 提取enemy_car_infos
             enemy_car_infos = self.enemy_car_infos
@@ -505,7 +512,7 @@ class Messager:
 
             # 新发送打包,嵌套列表，每个元素是一个列表，包含对应号的 x , y
             send_map_infos = [[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]]
-            print("send_map_infos" , send_map_infos)
+            # print("send_map_infos" , send_map_infos)
 
             for enemy_car_info in enemy_car_infos:
                 # 提取car_id和field_xyz
@@ -540,14 +547,18 @@ class Messager:
                 #     if time.time() - self.last_send_time_map[car_id] < 0.40:
                 #         # print("not valid ,sleep", 0.45 - (time.time() - self.last_send_time_map[car_id]) )
                 #         continue
+
+            # 打印打包好后的信息
             print("send_map_infos",send_map_infos)
-            # 发送
-            self.send_map(send_map_infos)
+            # 发送 , 采用skip的方式控制发送频率，不用sleep影响主线程的帧率
+            if time.time() - self.last_send_map_time > 0.18:
+                self.send_map(send_map_infos)
+                self.last_send_map_time = time.time()
             # print("send_map" ,  car_id , x , y)
             # 控制发送频率为5hz
-            self.frequency_control(self.last_send_map_time , 5)
+            # self.frequency_control(self.last_send_map_time , 5)
             # 更新时间
-            self.last_send_map_time = time.time()
+
             # self.last_send_time_map[car_id] = time.time()
             # if (car_id == 1 or car_id == 101 )  and is_valid: # 硬编码,要改
             #     if time.time() - self.last_send_double_effect_time < 10:

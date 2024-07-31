@@ -107,6 +107,7 @@ class Receiver:
     # 线程关闭
     def stop(self):
         self.working_flag = False
+        self.process.join()
         # self.threading.join()
     def get_crc16_check_byte(self,data):
         crc = 0xffff
