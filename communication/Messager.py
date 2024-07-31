@@ -294,7 +294,7 @@ class Messager:
     # 发送哨兵预警英雄信息
     def send_sentinel_alert_hero(self):
         if self.is_alert_hero:
-            self.sender.send_hero_alert_info()
+            self.sender.send_hero_alert_info(self.is_alert_hero)
 
     # 发送自主决策信息
     # def send_double_effect_decision(self):
