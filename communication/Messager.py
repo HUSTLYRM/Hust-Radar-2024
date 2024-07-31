@@ -94,6 +94,9 @@ class Messager:
         self.send_double_threshold = cfg["area"]["send_double_threshold"] # 发送双倍易伤的阈值
         self.is_alert_hero = False # 是否预警英雄
 
+        # 发送小地图历史记录
+        self.send_map_infos = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]
+
         # 赛场状态
         # 双倍易伤相关
         self.have_double_effect_times = 0 # 拥有的双倍易伤次数
@@ -479,7 +482,7 @@ class Messager:
                 break
             # 主体代码在这里以下------------------------------------------------
             # print("time left",self.time_left)
-            self.last_main_loop_time = Tools.frame_control(self.last_main_loop_time, 10)
+            self.last_main_loop_time = Tools.frame_control_sleep(self.last_main_loop_time, 10)
 
             # 更新共享内存变量
             self.update_shared_info()
@@ -511,7 +514,7 @@ class Messager:
             # not_valid_enemy_car_infos = []
 
             # 新发送打包,嵌套列表，每个元素是一个列表，包含对应号的 x , y
-            send_map_infos = [[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]]
+
             # print("send_map_infos" , send_map_infos)
 
             for enemy_car_info in enemy_car_infos:
@@ -526,15 +529,13 @@ class Messager:
                 # 提取x和y
                 x , y = field_xyz[0] , field_xyz[1]
                 # x的控制边界，让他在[0,28]m , y控制在[0,15]m
-                x = max(0,x)
-                x = min(x,28)
-                y= min(15,y)
-                y = max(0,y)
+                x = max(0, min(x, 28))
+                y = max(0, min(y, 15))
 
                 # 将所有车的x，y信息打包
                 for i,enemy_id in enumerate(self.enemy_id):
                     if car_id == enemy_id :
-                        send_map_infos[i] = [x,y]
+                        self.send_map_infos[i] = [x,y]
                         break
                 # 控制send_map的通信频率在10Hz
                 # time_interval = time.time() - self.last_send_map_time
@@ -549,11 +550,11 @@ class Messager:
                 #         continue
 
             # 打印打包好后的信息
-            print("send_map_infos",send_map_infos)
+            print("send_map_infos",self.send_map_infos)
             # 发送 , 采用skip的方式控制发送频率，不用sleep影响主线程的帧率
-            if time.time() - self.last_send_map_time > 0.18:
-                self.send_map(send_map_infos)
-                self.last_send_map_time = time.time()
+            is_skip , self.last_send_map_time = Tools.frame_control_skip(self.last_send_map_time, 10)
+            if not is_skip:
+                self.send_map(self.send_map_infos)
             # print("send_map" ,  car_id , x , y)
             # 控制发送频率为5hz
             # self.frequency_control(self.last_send_map_time , 5)

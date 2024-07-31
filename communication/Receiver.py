@@ -263,7 +263,7 @@ class Receiver:
 
 
 
-            self.last_time_main_loop = Tools.frame_control(100, self.last_time_main_loop)
+            self.last_time_main_loop = Tools.frame_control_sleep(100, self.last_time_main_loop)
 
 
             data_length, is_valid , header = self.parse_frame_header()
