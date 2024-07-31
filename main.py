@@ -111,8 +111,11 @@ if __name__ == '__main__':
     # 当前帧ID
     frame_id = 1
     # 控制主循环最高10帧
-    # last_time_main_loop = time.time()
+    last_time_main_loop = time.time()
     counter = 0
+
+    # 可视化小地图绘制queue
+    draw_queue = deque(maxlen=10)
 
     print("enter main loop")
     try:

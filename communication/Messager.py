@@ -193,24 +193,24 @@ class Messager:
         for enemy_car_info in enemy_car_infos:
             # 提取car_id和field_xyz
             track_id, car_id, field_xyz, is_valid = enemy_car_info[0], enemy_car_info[1], enemy_car_info[4],enemy_car_info[6]
-            self.logger.log(f"car_id:{car_id},field_xyz{field_xyz}")
-            print("field_xyz" , field_xyz)
+            # self.logger.log(f"car_id:{car_id},field_xyz{field_xyz}")
+            # print("field_xyz" , field_xyz)
             # from array to list
             field_xyz = list(field_xyz)
-            self.logger.log(f"car_id is {car_id} , enemy_hero_id is {self.enemy_hero_id}")
+            # self.logger.log(f"car_id is {car_id} , enemy_hero_id is {self.enemy_hero_id}")
             if car_id == self.enemy_hero_id:
-                self.logger.log(f"find hero at {field_xyz}")
+                # self.logger.log(f"find hero at {field_xyz}")
                 if field_xyz == []:
                     self.logger.log(f"field_xyz is empty")
-                    print("field_xyz is empty")
+                    # print("field_xyz is empty")
                     return
-                self.logger.log(f"cross and find hero at {field_xyz}")
+                # self.logger.log(f"cross and find hero at {field_xyz}")
                 hero_x = field_xyz[0]
                 hero_y = field_xyz[1]
                 hero_x = max(0, min(hero_x, 28))
                 hero_y = max(0, min(hero_y, 15))
-                self.logger.log(f"find hero at {hero_x} {hero_y}")
-                print(f"find hero at {hero_x} , {hero_y}")
+                # self.logger.log(f"find hero at {hero_x} {hero_y}")
+                # print(f"find hero at {hero_x} , {hero_y}")
                 # 可视化处理，DEBUG
 
                 if self.is_debug:
