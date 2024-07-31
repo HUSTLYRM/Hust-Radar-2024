@@ -148,6 +148,7 @@ class Receiver:
                 print("find SOF")
                 return True
             # 整体再挂起0.01s,控制在50HZ
+            # print("find sof sleep")
             time.sleep(0.01)
         return False
 

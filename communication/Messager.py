@@ -182,17 +182,37 @@ class Messager:
             color = (0, 255, 0)
         enemy_car_infos = self.enemy_car_infos
 
+        if enemy_car_infos == []:
+            self.logger.log("enemy_car_infos is empty-----------------------")
+            print("enemy_car_infos is empty-----------------------")
+            return
+
         hero_x = -1
         hero_y = -1
 
         for enemy_car_info in enemy_car_infos:
             # 提取car_id和field_xyz
             track_id, car_id, field_xyz, is_valid = enemy_car_info[0], enemy_car_info[1], enemy_car_info[4],enemy_car_info[6]
-
+            self.logger.log(f"car_id:{car_id},field_xyz{field_xyz}")
+            print("field_xyz" , field_xyz)
+            # from array to list
+            field_xyz = list(field_xyz)
+            self.logger.log(f"car_id is {car_id} , enemy_hero_id is {self.enemy_hero_id}")
             if car_id == self.enemy_hero_id:
+                self.logger.log(f"find hero at {field_xyz}")
+                if field_xyz == []:
+                    self.logger.log(f"field_xyz is empty")
+                    print("field_xyz is empty")
+                    return
+                self.logger.log(f"cross and find hero at {field_xyz}")
                 hero_x = field_xyz[0]
                 hero_y = field_xyz[1]
+                hero_x = max(0, min(hero_x, 28))
+                hero_y = max(0, min(hero_y, 15))
+                self.logger.log(f"find hero at {hero_x} {hero_y}")
+                print(f"find hero at {hero_x} , {hero_y}")
                 # 可视化处理，DEBUG
+
                 if self.is_debug:
                     pixel_coord = self.convert_to_image_coords(hero_x, hero_y, image.shape[1], image.shape[0], 28, 15)
                     pixel_x = pixel_coord[0]
@@ -227,8 +247,10 @@ class Messager:
 
         # Display the image,DEBUG
         if self.is_debug:
-            cv2.imshow('areas', image)
-            cv2.waitKey(1)
+            # cv2.imshow('areas', image)
+            # cv2.waitKey(1)
+            pass
+
         # cv2.destroyAllWindows()
 
     # 判断车辆是否在指定区域内
@@ -262,6 +284,8 @@ class Messager:
         # 如果为空，直接返回
         with self.map_lock:
             self.enemy_car_infos = enemy_car_infos
+        # print(f"enemy car info{self.enemy_car_infos}")
+        # self.logger.log(f"update enemy car infos{self.enemy_car_infos}")
 
     # 更新哨兵预警信息
     def update_sentinel_alert_info(self , sentinel_alert_info):
@@ -490,20 +514,27 @@ class Messager:
             self.update_flags()
 
             # 更新英雄预警
-            try:
-                show_map_image = copy.deepcopy(map_image)
-                self.hero_alert(show_map_image)
-                print("hero alert")
-            except Exception as e:
-                self.logger.log(f"Hero alert error: {e}")
-                print(f"Hero alert error: {e}")
 
+            show_map_image = copy.deepcopy(map_image)
+
+            # print("hero alert")
+
+
+            # try:
+            # self.logger.log("enter hero alert check")
+            self.hero_alert(show_map_image)
+            # self.logger.log("exit hero alert check")
+            # except Exception as e:
+            #     self.logger.log(f"Hero alert error: {e}")
+            #     print(f"Hero alert error: {e}")
 
             # 发送自主决策信息
             self.send_double_effect_decision()
+            # self.logger.log("send double effect decision")
 
             # 发送哨兵预警信息
             self.send_sentinel_alert_hero()
+            # self.logger.log("send sentry alert hero")
 
             # 提取enemy_car_infos
             enemy_car_infos = self.enemy_car_infos
@@ -523,7 +554,9 @@ class Messager:
                 # if track_id == -1: # 如果track_id为-1，说明没有检测到，不发送
                 #     # print("not init continue")
                 #     continue
-
+                if field_xyz == []:
+                    # self.logger.log("send map field_xyz is empty")
+                    continue
                 # 将所有信息打印
                 # print("car_id:",car_id , "field_xyz:",field_xyz , "is_valid:",is_valid)
                 # 提取x和y
@@ -550,9 +583,9 @@ class Messager:
                 #         continue
 
             # 打印打包好后的信息
-            print("send_map_infos",self.send_map_infos)
+            # print("send_map_infos",self.send_map_infos)
             # 发送 , 采用skip的方式控制发送频率，不用sleep影响主线程的帧率
-            is_skip , self.last_send_map_time = Tools.frame_control_skip(self.last_send_map_time, 10)
+            is_skip , self.last_send_map_time = Tools.frame_control_skip(self.last_send_map_time, 5)
             if not is_skip:
                 self.send_map(self.send_map_infos)
             # print("send_map" ,  car_id , x , y)
