@@ -161,18 +161,24 @@ if __name__ == '__main__':
                         continue
                     # print("pcd num:",lidar.pcdQueue.point_num)
                     pc_all = lidar.get_all_pc()
+                    # pc_all_copy = np.array(pc_all)
 
                     # 创建总体点云pcd
                     pcd_all = o3d.geometry.PointCloud()
                     pcd_all.points = o3d.utility.Vector3dVector(pc_all)
 
                     # pc_all暂时后面没用了，可以直接创建一个深度图
-                    depth_map = converter.generate_depth_map(pc=pc_all)
-                    cv2.imshow("depth_map", depth_map)
-                    cv2.waitKey(1)
+
+                    # cv2.waitKey(1)
 
                     # 将总体点云转到相机坐标系下
                     converter.lidar_to_camera(pcd_all)
+
+                    # 将pcd_all的pc复制一份
+                    # pc_all_copy = np.array(pcd_all.points)
+                    # depth_map = converter.generate_depth_map(pc=pc_all_copy)
+                    # depth_map = cv2.resize(depth_map, (1920, 1080))
+                    # cv2.imshow("depth_map", depth_map)
 
                     # 检测框对应点云
                     box_pcd = o3d.geometry.PointCloud()
@@ -385,13 +391,12 @@ if __name__ == '__main__':
             # 绘值draw_queue的图
 
             # 如果队列中有图片则绘值
-            if len(draw_queue) > 0:
-                try:
-                    draw_image = draw_queue.popleft()
-                    cv2.imshow("depth image", draw_image)
-                    cv2.waitKey(1)
-                except Exception as e:
-                    print(e)
+            # if len(draw_queue) > 0:
+            #     try:
+            #         draw_image = draw_queue.popleft()
+            #         #
+            #     except Exception as e:
+            #         print(e)
 
 
 
