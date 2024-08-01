@@ -259,6 +259,7 @@ class Messager:
             # cv2.imshow('areas', image)
             # cv2.waitKey(1)
             self.put_draw_queue(image)
+            # print("put in ")
             pass
 
         # cv2.destroyAllWindows()
@@ -282,6 +283,7 @@ class Messager:
     # 关闭线程
     def stop(self):
         self.working_flag = False
+        self.receiver.stop()
         # self.threading.join()
 
     # 更新剩余时间
@@ -643,8 +645,8 @@ class Messager:
             #         time.sleep(0.35 - time_interval)
             #     self.send_map(car_id , x , y)
             #     self.last_send_time_list[(car_id % 100)-1] = time.time()
+            # print("debug messager main loop")
 
-        self.receiver.stop()
 
 
 

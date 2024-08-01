@@ -141,8 +141,10 @@ class Receiver:
         # 读取单个字节直至找到SOF
         find_time = 0
         while True:
+            if not self.working_flag:
+                return
             # 0.01s如果没有接收就返回空
-            byte = self.ser.read()
+            byte = self.ser.read(10)
             # print("finding sof")
             if byte == b'\xA5':
                 print("find SOF")
@@ -291,6 +293,7 @@ class Receiver:
 
             # 处理不同的命令
             self.switch_method(cmd_id,data)
+            # print("debug receiver main loop")
 
     # 调用这个函数来处理不同的命令
     def switch_method(self, cmd_id, data):
