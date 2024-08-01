@@ -2,11 +2,11 @@ import os
 import time
 
 class RadarLog:
-    def __init__(self, test_name):
-        self.test_name = test_name
+    def __init__(self, logger_name):
+        self.logger_name = logger_name
         self.timestamp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
         self.log_dir = '/home/nvidia/RadarWorkspace/code/Radar_Develop/logfile'
-        self.log_path = f'{self.log_dir}/{self.test_name}_{self.timestamp}.log'
+        self.log_path = f'{self.log_dir}/{self.logger_name}_{self.timestamp}.log'
         # 确保log目录存在
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)

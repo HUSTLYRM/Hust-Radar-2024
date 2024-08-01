@@ -12,7 +12,7 @@ import copy
 from Tools.Tools import Tools
 
 class Messager:
-    def __init__(self , cfg):
+    def __init__(self , cfg , draw_queue):
         # 全局变量
         self.is_debug = cfg["global"]["is_debug"]
         # 创建共享内存变量
@@ -21,6 +21,7 @@ class Messager:
         self.shared_enemy_marked_process_list = multiprocessing.Array('i', [0,0,0,0,0,0,0]) # 标记进度,对应对方1，2，3，4，5号车和哨兵
         self.shared_have_double_effect_times = multiprocessing.Value('i', 0) # 拥有的双倍易伤次数
         self.shared_time_left = multiprocessing.Value('i', -1) # 剩余时间
+        self.draw_queue = draw_queue
         # log部分
         self.logger = RadarLog("Messager")
 
@@ -96,6 +97,7 @@ class Messager:
 
         # 发送小地图历史记录
         self.send_map_infos = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]
+        self.send_map_info_is_latest = [False, False, False, False, False, False]  # 是否是最新的小地图信息
 
         # 赛场状态
         # 双倍易伤相关
@@ -124,6 +126,13 @@ class Messager:
 
         # flag
         self.working_flag = False
+
+    # 将想要绘值的图片放入队列
+    def put_draw_queue(self , image):
+        try:
+            self.draw_queue.put(image)
+        except Exception as e:
+            self.logger.log(f"Put image into draw queue error:{e}")
 
     # 根据共享内存变量更新握在手上的决策信息
     def update_shared_info(self):
@@ -249,6 +258,7 @@ class Messager:
         if self.is_debug:
             # cv2.imshow('areas', image)
             # cv2.waitKey(1)
+            self.put_draw_queue(image)
             pass
 
         # cv2.destroyAllWindows()
@@ -547,6 +557,9 @@ class Messager:
             # 新发送打包,嵌套列表，每个元素是一个列表，包含对应号的 x , y
 
             # print("send_map_infos" , send_map_infos)
+            # 先将小地图发送信息全部置为无效
+            for i,enemy_id in enumerate(self.enemy_id):
+                self.send_map_info_is_latest[i] = False
 
             for enemy_car_info in enemy_car_infos:
                 # 提取car_id和field_xyz
@@ -567,8 +580,10 @@ class Messager:
 
                 # 将所有车的x，y信息打包
                 for i,enemy_id in enumerate(self.enemy_id):
+
                     if car_id == enemy_id :
                         self.send_map_infos[i] = [x,y]
+                        self.send_map_info_is_latest[i] = True
                         break
                 # 控制send_map的通信频率在10Hz
                 # time_interval = time.time() - self.last_send_map_time

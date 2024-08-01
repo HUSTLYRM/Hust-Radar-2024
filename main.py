@@ -54,11 +54,8 @@ if __name__ == '__main__':
     if save_video:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
         out = cv2.VideoWriter(video_save_path, fourcc, 24, (1920, 1280))  # 文件名，编码器，帧率，帧大小
-
-
-
-
-
+    # 传递的绘值队列
+    draw_queue = deque(maxlen=10)
     # 类初始化
     detector = Detector(detector_config_path)
     lidar = Lidar(main_cfg)
@@ -66,7 +63,7 @@ if __name__ == '__main__':
     carList = CarList(main_cfg)
     logger.log("carList init")
 
-    messager = Messager(main_cfg)
+    messager = Messager(main_cfg , draw_queue)
     logger.log("messager init")
 
 
@@ -107,7 +104,7 @@ if __name__ == '__main__':
     counter = 0
 
     # 可视化小地图绘制queue
-    draw_queue = deque(maxlen=10)
+
 
     print("enter main loop")
     try:
@@ -168,6 +165,11 @@ if __name__ == '__main__':
                     # 创建总体点云pcd
                     pcd_all = o3d.geometry.PointCloud()
                     pcd_all.points = o3d.utility.Vector3dVector(pc_all)
+
+                    # pc_all暂时后面没用了，可以直接创建一个深度图
+                    depth_map = converter.generate_depth_map(pc=pc_all)
+                    cv2.imshow("depth_map", depth_map)
+                    cv2.waitKey(1)
 
                     # 将总体点云转到相机坐标系下
                     converter.lidar_to_camera(pcd_all)
@@ -380,6 +382,19 @@ if __name__ == '__main__':
             #     counter = 0
             #     all_detections = []
             # counter += 1
+            # 绘值draw_queue的图
+
+            # 如果队列中有图片则绘值
+            if len(draw_queue) > 0:
+                try:
+                    draw_image = draw_queue.popleft()
+                    cv2.imshow("depth image", draw_image)
+                    cv2.waitKey(1)
+                except Exception as e:
+                    print(e)
+
+
+
             if is_debug:
                 cv2.imshow("frame", result_img) # 不加3帧
             frame_id += 1

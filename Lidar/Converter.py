@@ -260,9 +260,9 @@ class Converter:
         return uvz
 
     # 将生成的uvz转换为深度图
-    def generate_depth_map(self, pcd): # 传入的pcd,返回的是一个深度图
+    def generate_depth_map(self, pc): # 传入的pcd,返回的是一个深度图
 
-        uvz = self.camera_to_image(pcd) # 转换为uvz
+        uvz = self.camera_to_image(pc) # 转换为uvz
         # 提取u,v,z
         u = uvz[:, 0]
         v = uvz[:, 1]
