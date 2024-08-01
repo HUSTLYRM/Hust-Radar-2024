@@ -5,7 +5,7 @@ from detect.Video import Video
 from detect.Capture import Capture
 from Lidar.Lidar import Lidar
 from Lidar.Converter import Converter
-import logging
+from Log.Log import RadarLog
 from Lidar.PointCloud import PcdQueue
 from Car.Car import *
 import numpy as np
@@ -48,16 +48,8 @@ if __name__ == '__main__':
         os.makedirs(today_video_folder_path)
     video_name = time.strftime("%H%M%S", time.localtime()) # 视频名称，以时分秒命名，19：29：30则为192930
     video_save_path = today_video_folder_path + video_name + ".mp4" # 视频保存路径
-    log_save_path = today_video_folder_path + video_name + ".log" # log保存路径
-    # log部分
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)  # 设置日志级别为INFO
-    handler = logging.FileHandler(
-        log_save_path)  # 创建一个文件处理器，将日志写入'messager.log'文件中
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')  # 创建一个日志格式器
-    handler.setFormatter(formatter)  # 将日志格式器设置给文件处理器
-    logger.addHandler(handler)  # 将文件处理器添加到日志记录器
-    logger.info('Start main')
+
+    logger = RadarLog("main")
 
     if save_video:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
@@ -65,19 +57,20 @@ if __name__ == '__main__':
 
 
 
-    print("start")
+
 
     # 类初始化
     detector = Detector(detector_config_path)
-    print("detector init")
     lidar = Lidar(main_cfg)
-    print("lidar init")
     converter = Converter(global_my_color,converter_config_path)  # 传入的是path
-    print("converter init")
     carList = CarList(main_cfg)
-    print("carList init")
+    logger.log("carList init")
+
     messager = Messager(main_cfg)
-    print("messager init")
+    logger.log("messager init")
+
+
+
 
     if mode == "video":
         capture = Video(video_path)
@@ -88,10 +81,9 @@ if __name__ == '__main__':
         exit(1)
 
 
-    # print("capture init")
     # 场地解算初始化
     converter.camera_to_field_init(capture)
-    print("converter init")
+
     start_time = time.time()
     # fps计算
     N = 10
@@ -111,7 +103,7 @@ if __name__ == '__main__':
     # 当前帧ID
     frame_id = 1
     # 控制主循环最高10帧
-    last_time_main_loop = time.time()
+    # last_time_main_loop = time.time()
     counter = 0
 
     # 可视化小地图绘制queue
@@ -166,7 +158,7 @@ if __name__ == '__main__':
                 result_img, results = infer_result
 
                 if results is not None:
-                    # print("results is not none")
+                    print("results is not none")
                     if lidar.pcdQueue.point_num == 0:
                         print("no pcd")
                         continue
