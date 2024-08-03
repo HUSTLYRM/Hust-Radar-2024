@@ -206,9 +206,13 @@ class Sender:
         # 初始化data
         data = b''
         for info in infos:
-            data += struct.pack('HH', int(info[0]*100), int(info[1]*100)) # 单位转换为cm
+            x = int(info[0]*100)
+            y = int(info[1]*100)
+            # print("map ",x,y)
+            data += struct.pack('HH', x, y) # 单位转换为cm
 
         data_len = len(data)
+        # print("data len ",data_len)
 
         frame_head = self.get_frame_header(data_len)
 
@@ -366,8 +370,8 @@ class Sender:
     # (3) 发送雷达自主决策信息,调用方法
     def send_radar_double_effect_info(self,times = 1):
         tx_buff =  self.generate_radar_double_effect_info(times)
-        print("send double",tx_buff)
-        print("send double length",len(tx_buff))
+        # print("send double",tx_buff)
+        # print("send double length",len(tx_buff))
         self.send_info(tx_buff)
 
     # (4) 组织英雄预警信息,中间方法 , is_alert为true的时候发0xff，false的时候发0x00

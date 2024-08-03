@@ -9,13 +9,14 @@ from Tools.Tools import Tools
 from ruamel.yaml import YAML
 
 class Receiver:
-    def __init__(self,cfg ,shared_is_activating_double_effect , shared_enemy_health_list , shared_enemy_marked_process_list , shared_have_double_effect_times , shared_time_left):
+    def __init__(self,cfg ,shared_is_activating_double_effect , shared_enemy_health_list , shared_enemy_marked_process_list , shared_have_double_effect_times , shared_time_left , shared_dart_target):
         # 共享内存变量
         self.shared_is_activating_double_effect = shared_is_activating_double_effect
         self.shared_enemy_health_list = shared_enemy_health_list
         self.shared_enemy_marked_process_list = shared_enemy_marked_process_list
         self.shared_have_double_effect_times = shared_have_double_effect_times
         self.shared_time_left = shared_time_left
+        self.shared_dart_target = shared_dart_target
 
         # 全局变量
         self.my_color = cfg['global']['my_color']
@@ -90,6 +91,7 @@ class Receiver:
         self.time_left = -1 # 剩余时间
         # 共享内存变量
         self.already_send_double_effect = Value('i', 0) # 是否已经发送了双倍概率
+        self.dart_target = 0 #飞镖目标
 
         # 线程
         self.threading = threading.Thread(target=self.parse_cmd_id, daemon=True)
@@ -144,10 +146,10 @@ class Receiver:
             if not self.working_flag:
                 return
             # 0.01s如果没有接收就返回空
-            byte = self.ser.read(10)
+            byte = self.ser.read(1)
             # print("finding sof")
             if byte == b'\xA5':
-                print("find SOF")
+                # print("find SOF")
                 return True
             # 整体再挂起0.01s,控制在50HZ
             # print("find sof sleep")
@@ -223,7 +225,7 @@ class Receiver:
 
             if not self.working_flag:
                 print("not")
-                break
+                return
             time_interval = time.time() - self.last_time_main_loop
             if time_interval < 0.02:  # 主循环控制在50HZ
                 time.sleep(0.02 - (time_interval))
@@ -312,7 +314,7 @@ class Receiver:
         elif cmd_id_value == 0x020E:
             self.parse_double_effect(data)
         elif cmd_id_value == 0x0105: # 飞镖目标
-            print("parse dart target")
+            # print("parse dart target")
             self.parse_dart_target(data)
 
         # Add conditions for other cmd_ids
@@ -338,31 +340,45 @@ bit 7-15：保留
     '''
     def parse_dart_target(self,data):
         # data是小端格式的
-        print(data)
-        hit_target = data[1] & 0x03
-        print(f"Hit target: {hit_target}")
+        # print(data)
+        dart_info_value = struct.unpack('<H', data[1:3])[0]
+
+        # 按位打印data
+        # print("start bit")
+        # for i in range(8):
+        #     print((dart_info_value >> i) & 0x01)
+        # print("stop bit")
+
+        # 提取第 5-6 位的值
+        dart_target = (dart_info_value >> 5) & 0x03
+
+        print(f"Dart target: {dart_target}")
+        # hit_target = data[1] & 0x06
+        # print(struct.unpack('H',data[1]))
+        self.shared_dart_target.value = dart_target
+        # print(f"Hit target: {hit_target}")
         # 如果目标为1，则认为第一次想发送双倍易伤，如果为2，则认为第二次想发送双倍易伤
 
-        if hit_target == 1:
-            self.send_double_count_1 += 1
-            if self.send_double_count_1 > 1:
-                self.send_double_flag = hit_target
-            return
-        elif hit_target == 2:
-            self.send_double_count_2 += 1
-            if self.send_double_count_2 > 1:
-                self.send_double_flag = hit_target
-            return
-        else:
-            self.send_double_count_1 = 0
-            self.send_double_count_2 = 0
+        # if hit_target == 1:
+        #     self.send_double_count_1 += 1
+        #     if self.send_double_count_1 > 1:
+        #         self.send_double_flag = hit_target
+        #     return
+        # elif hit_target == 2:
+        #     self.send_double_count_2 += 1
+        #     if self.send_double_count_2 > 1:
+        #         self.send_double_flag = hit_target
+        #     return
+        # else:
+        #     self.send_double_count_1 = 0
+        #     self.send_double_count_2 = 0
 
 
     # 比赛进行时间时间解析
     def process_game_status(self,data):
         time_left = data[1]+data[2]*256
-        self.shared_time_left = time_left
-        print(f"Time left: {time_left}")
+        self.shared_time_left.value = time_left
+        # print(f"Time left: {time_left}")
 
     # 获取比赛剩余时间
     def get_time_left(self):

@@ -21,7 +21,9 @@ class Messager:
         self.shared_enemy_marked_process_list = multiprocessing.Array('i', [0,0,0,0,0,0,0]) # 标记进度,对应对方1，2，3，4，5号车和哨兵
         self.shared_have_double_effect_times = multiprocessing.Value('i', 0) # 拥有的双倍易伤次数
         self.shared_time_left = multiprocessing.Value('i', -1) # 剩余时间
+        self.shared_dart_target = multiprocessing.Value('i', 0) # 飞镖目标
         self.draw_queue = draw_queue
+        self.dart_target_times = [0,0,0]
         # log部分
         self.logger = RadarLog("Messager")
 
@@ -34,7 +36,7 @@ class Messager:
         # self.is_vs_hg = cfg['others']['is_vs_hg']
 
         # 接收部分
-        self.receiver = Receiver(cfg, self.shared_is_activating_double_effect , self.shared_enemy_health_list , self.shared_enemy_marked_process_list , self.shared_have_double_effect_times , self.shared_time_left)
+        self.receiver = Receiver(cfg, self.shared_is_activating_double_effect , self.shared_enemy_health_list , self.shared_enemy_marked_process_list , self.shared_have_double_effect_times , self.shared_time_left , self.shared_dart_target)
 
         # 数据存储
         self.enemy_car_infos = [] # 敌方车辆信息，enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color = enemy_car_info
@@ -118,6 +120,9 @@ class Messager:
         self.enemy_health_info = [100,100,100,100,100,100] # 对方1-5和7号的血量信息
         self.hero_is_dead = False # 1号英雄是否死亡
 
+        # 飞镖目标
+        self.dart_target = 0
+
         # for area in self.area_list:
         #     print(area)
 
@@ -141,6 +146,16 @@ class Messager:
         self.update_shared_mark_progress()
         self.update_shared_have_double_effect_times()
         self.update_shared_time_left()
+        self.update_shared_dart_target()
+
+    # 更新飞镖目标
+    def update_shared_dart_target(self):
+        index = self.shared_dart_target.value
+        if not (self.dart_target == index):
+            self.dart_target_times[index] += 1
+        if self.dart_target_times[index] >= 2 :
+            self.dart_target = index
+            self.dart_target_times = [0,0,0]
 
     # 更新敌方血量信息
     def update_shared_enemy_health_info(self):
@@ -166,6 +181,8 @@ class Messager:
     def update_shared_time_left(self):
         if self.shared_time_left.value != self.time_left:
             self.time_left = self.shared_time_left.value
+        # else:
+        #     print(f"shared time left{self.shared_time_left} and local time left{self.time_left}")
 
 
     # hero_alert的辅助函数，将真实世界坐标转换为图像坐标
@@ -432,30 +449,41 @@ class Messager:
 
 
 
-
-
+    # 根据已发送情况自动标号发双倍易伤
+    def auto_send_double_effect_decision(self):
+        self.sender.send_radar_double_effect_info(self.already_activate_double_effect_times + 1)
     # 新双倍易伤发送机制
     def send_double_effect_decision(self):
         # 如果没有双倍易伤机会或正在触发双倍易伤，不发送
-        if self.have_double_effect_times == 0 or self.is_activating_double_effect:
+        if self.have_double_effect_times == 0 or self.is_activating_double_effect or self.already_activate_double_effect_times == 2 :
+            # print("no double times status",self.have_double_effect_times , self.is_activating_double_effect , self.already_activate_double_effect_times)
             return
 
         # 如果对面英雄存活，且英雄在危险区域，且英雄被标记或发现次数超过阈值，发送双倍易伤
         if (not self.hero_is_dead and self.is_alert_hero and (self.hero_is_marked or self.find_hero_times >= self.send_double_threshold)):
             # 关于已发送次数的计算，考虑读取是否正在触发双倍以上，如果从正在触发变为未触发，则计算已发送次数+1，在此期间请求的仍为上一次的次数，视作不合法不会触发第二次双倍易伤请求
             # 本次结束后，下降沿修改次数加一，则下次调用时自动加一，能触发第二次
-            self.sender.send_radar_double_effect_info(self.already_activate_double_effect_times + 1)
+            self.auto_send_double_effect_decision()
             if self.hero_is_marked:
                 self.logger.log(f'Sent double effect info: {self.already_activate_double_effect_times + 1} because hero is marked')
             else:
                 self.logger.log(f'Sent double effect info: {self.already_activate_double_effect_times + 1} because hero is in danger area more than {self.send_double_threshold} times')
             return
+        else:
+            # print("hero is dead",self.hero_is_dead)
+            # print("is alert hero:" , self.is_alert_hero)
+            # print("find_hero_times" , self.find_hero_times)
+            pass
 
         # 为了好看，发送的分两种情况
         if self.marked_num >= 4:
-            self.sender.send_radar_double_effect_info(self.already_activate_double_effect_times + 1)
+            self.auto_send_double_effect_decision()
             self.logger.log(f'Sent double effect info: {self.already_activate_double_effect_times + 1} because marked num >= 4')
             return
+
+        if self.dart_target == 2:
+            self.auto_send_double_effect_decision()
+            print("发送双倍易伤请求，因为飞镖目标为2")
 
         # 如果距离上次发送时间小于1s，不发送,time()的单位是s
         # if time.time() - self.last_send_double_effect_time < 1 or self.time_left == -1 :
