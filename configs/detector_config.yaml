@@ -10,4 +10,4 @@ params:
   life_time: 90 # 生命周期
 
 is_record: True
-record_fps: 6
+record_fps: 19

@@ -549,9 +549,9 @@ class ROISelector:
     def get_sentinel_patrol_area_field_xyz(self , my_color):
         # 传入颜色，返回预设的哨兵巡逻区的赛场坐标系的坐标
         if my_color == 'Red':
-            return [22.63,9.42,0.5] # 蓝方哨兵巡逻区赛场中心坐标，TODO:需要填入
+            return [22.63,9.42,0.5] # 蓝方哨兵巡逻区赛场中心坐标，
         else:
-            return [5.68,6,54,0.5] # 红方哨兵巡逻区赛场中心坐标，TODO:需要填入
+            return [5.68,6,54,0.5] # 红方哨兵巡逻区赛场中心坐标，
 
     def get_hero_highland_area_field_xyz(self , my_color):
         # 传入颜色，返回预设的英雄梯高区的赛场坐标系的坐标

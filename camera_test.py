@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
     # 使用mp4编码器
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(f'camera0507_{round}.mp4', fourcc, 12, (capture.width,capture.height))  # 文件名，编码器，帧率，帧大小
+    out = cv2.VideoWriter(f'camera0722_{round}.mp4', fourcc, 12, (capture.width,capture.height))  # 文件名，编码器，帧率，帧大小
 
 
     # fps计算
