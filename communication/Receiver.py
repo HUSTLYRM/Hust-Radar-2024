@@ -103,7 +103,7 @@ class Receiver:
         self.last_time_main_loop = time.time() # 保持一秒一帧
 
         # 接收进程
-        self.process = Process(target=self.parse_cmd_id, daemon=True)
+        self.process = Process(target=self.parse_cmd_id_batch, daemon=True)
 
     # 线程创建
     # 线程开启
@@ -115,10 +115,11 @@ class Receiver:
         self.working_flag = False
         self.process.join()
         # self.threading.join()
-    def get_crc16_check_byte(self,data):
+
+    def get_crc16_check_byte(self, data):
         crc = 0xffff
         for byte in data:
-            crc = ((crc >> 8) ^ self.CRC16_TABLE[(crc ^ byte & 0xff) & 0xff])
+            crc = ((crc >> 8) ^ self.CRC16_TABLE[(crc ^ byte) & 0xff])
         return crc
 
     def get_crc8_check_byte(self,data):
@@ -134,9 +135,11 @@ class Receiver:
         return crc8 == crc8_cal
 
     # 判断crc16是否正确，传入不含crc16的帧头部分和crc16
-    def check_crc16(self,tx_buff,crc16):
+    def check_crc16(self, tx_buff, crc16):
         crc16_cal = self.get_crc16_check_byte(tx_buff)
-        return crc16 == crc16_cal
+        # 将计算出的 CRC16 转换为小端格式的字节序列
+        crc16_cal_bytes = struct.pack('<H', crc16_cal)
+        return crc16 == crc16_cal_bytes
 
     # 将帧头，cmd_id , data合成用来计算crc16的数据
     def get_tx_buff_to_cal_crc16(self,header,cmd_id,data):
@@ -162,7 +165,7 @@ class Receiver:
                 return True
             # 整体再挂起0.01s,控制在50HZ
             # print("find sof sleep")
-            time.sleep(0.01)
+            time.sleep(0.001)
         return False
 
     # frame_header解析,返回data_length, crc8校验结果
@@ -264,6 +267,68 @@ class Receiver:
             # 处理不同的命令
             self.switch_method(cmd_id, data)
 
+    # 批量解析所有帧
+    def parse_cmd_id_batch(self):
+        buffer = b''  # 初始化缓冲区
+
+        while True:
+            if not self.working_flag:
+                return
+
+            # 一次性读取串口缓冲区中的所有数据
+            buffer += self.ser.read(self.ser.in_waiting or 1)
+
+            while True:
+                # print("buffer len" , len(buffer))
+                # 检查缓冲区中是否有足够的数据来解析帧头
+                if len(buffer) < 5:
+                    break
+
+                # 找到SOF
+                sof_index = buffer.find(b'\xA5')
+                if sof_index == -1:
+                    buffer = b''  # 清空缓冲区
+                    break
+
+                # 截取帧头
+                if len(buffer) < sof_index + 5:
+                    break
+
+                header = buffer[sof_index:sof_index + 5]
+                data_length, seq, crc8 = struct.unpack('<HBB', header[1:])
+
+                # 校验CRC8
+                _header = struct.pack('B', 165) + struct.pack('H', data_length) + struct.pack('B', seq)
+                if not self.check_crc8(_header, crc8):
+                    buffer = buffer[sof_index + 1:]  # 移动到下一个字节继续查找SOF
+                    continue
+
+                # 检查缓冲区中是否有足够的数据来解析完整的帧
+                frame_length = 5 + 2 + data_length + 2
+                if len(buffer) < sof_index + frame_length:
+                    break
+
+                # 截取完整的帧
+                frame = buffer[sof_index:sof_index + frame_length]
+                buffer = buffer[sof_index + frame_length:]  # 移动缓冲区指针
+
+                # 解析帧
+                header = frame[:5]
+                rest_data = frame[5:]
+                cmd_id = rest_data[:2]
+                data = rest_data[2:-2]
+                frame_tail = rest_data[-2:]
+
+                # 校验CRC16
+                tx_buff = header + rest_data[:-2]
+                if not self.check_crc16(tx_buff, frame_tail):
+                    print("crc16 check fail")
+                    continue
+                # print("switch cmd id -----------------------")
+                # 处理不同的命令
+                self.switch_method(cmd_id, data)
+
+
     # 解析帧头和cmd_id , 所有的东西都需要保留下来，因为要用来计算crc16
     def parse_cmd_id(self):
 
@@ -278,7 +343,7 @@ class Receiver:
             print("receiver")
 
 
-            self.last_time_main_loop = Tools.frame_control_sleep(100, self.last_time_main_loop)
+            self.last_time_main_loop = Tools.frame_control_sleep(1000, self.last_time_main_loop)
 
 
             data_length, is_valid , header = self.parse_frame_header()
