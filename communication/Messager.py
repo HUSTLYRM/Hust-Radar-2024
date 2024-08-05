@@ -26,6 +26,7 @@ class Messager:
         self.dart_target_times = [0,0,0]
         # log部分
         self.logger = RadarLog("Messager")
+        self.status_logger = RadarLog("Messager_Status")
 
         # 发送部分
         self.sender = Sender(cfg )
@@ -42,6 +43,7 @@ class Messager:
         self.enemy_car_infos = [] # 敌方车辆信息，enemy_car_id , enemy_center_xy , enemy_camera_xyz , enemy_field_xyz , enemy_color = enemy_car_info
         self.sentinel_alert_info = [] # 哨兵预警信息，匹配sender的generate_sentinel_alert_info(self , carID , distance , quadrant):
         self.time_left = -1 #剩余时间
+        self.last_time_left = -1 # 上次剩余时间 , 用于判断是否更新
 
         # 线程锁
         self.map_lock = threading.Lock() # 小地图敌方车辆信息锁
@@ -57,9 +59,11 @@ class Messager:
         if self.my_color == "Red": # 红方是1-7 ， 蓝方是101-107
             self.enemy_hero_id = 101
             self.enemy_id = [101,102,103,104,105,107]
+            self.my_sentinel_id = 7
         elif self.my_color == "Blue":
             self.enemy_hero_id = 1
             self.enemy_id = [1,2,3,4,5,7]
+            self.my_sentinel_id = 107
 
         else:
             print("检查main_config里己方颜色是否大写！")
@@ -131,6 +135,13 @@ class Messager:
 
         # flag
         self.working_flag = False
+
+    # 判断是否为下一秒
+    def is_next_second(self):
+        if self.time_left != self.last_time_left:
+            self.last_time_left = self.time_left
+            return True
+        return False
 
     # 将想要绘值的图片放入队列
     def put_draw_queue(self , image):
@@ -275,7 +286,7 @@ class Messager:
         if self.is_debug:
             # cv2.imshow('areas', image)
             # cv2.waitKey(1)
-            self.put_draw_queue(image)
+            # self.put_draw_queue(image)
             # print("put in ")
             pass
 
@@ -524,6 +535,9 @@ class Messager:
             time.sleep(1/fps - time_interval)
 
     # 根据时间发送自主决策信息
+    # 发送双倍易伤信息
+    def send_double_effect_times_to_car(self):
+        self.sender.send_double_effect_times_to_car(self.my_sentinel_id , self.have_double_effect_times)
 
 
     # 线程主函数
@@ -577,6 +591,9 @@ class Messager:
             self.send_sentinel_alert_hero()
             # self.logger.log("send sentry alert hero")
 
+            # 发送步兵双倍易伤信息
+            self.send_double_effect_times_to_car()
+
             # 提取enemy_car_infos
             enemy_car_infos = self.enemy_car_infos
             # print("ready to send map info",enemy_car_infos)
@@ -588,9 +605,15 @@ class Messager:
             # 新发送打包,嵌套列表，每个元素是一个列表，包含对应号的 x , y
 
             # print("send_map_infos" , send_map_infos)
-            # 先将小地图发送信息全部置为无效
+            # 先将小地图发送信息的生命周期减1
             for i,enemy_id in enumerate(self.enemy_id):
-                self.send_map_info_is_latest[i] = False
+                self.send_map_info_is_latest[i] -= 1 if self.send_map_info_is_latest[i] > 0 else 0
+
+            for i , life_time in enumerate(self.send_map_info_is_latest):
+                if life_time <= 0:
+                    self.send_map_infos[i] = [0,0]
+
+
 
             for enemy_car_info in enemy_car_infos:
                 # 提取car_id和field_xyz
@@ -614,7 +637,7 @@ class Messager:
 
                     if car_id == enemy_id :
                         self.send_map_infos[i] = [x,y]
-                        self.send_map_info_is_latest[i] = True
+                        self.send_map_info_is_latest[i] = 5
                         break
                 # 控制send_map的通信频率在10Hz
                 # time_interval = time.time() - self.last_send_map_time
@@ -627,6 +650,10 @@ class Messager:
                 #     if time.time() - self.last_send_time_map[car_id] < 0.40:
                 #         # print("not valid ,sleep", 0.45 - (time.time() - self.last_send_time_map[car_id]) )
                 #         continue
+            # 一秒钟记录一次状态
+            if self.is_next_second():
+                self.status_logger.log(
+                    f"status record:is activating double effect flag{self.is_activating_double_effect} , enemy health info{self.enemy_health_info} , mark progress{self.mark_progress} , have double effect times{self.have_double_effect_times} , time left{self.time_left} , dart target{self.dart_target}")
 
             # 打印打包好后的信息
             # print("send_map_infos",self.send_map_infos)

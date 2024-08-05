@@ -401,9 +401,30 @@ class Sender:
         tx_buff = self.generate_hero_alert_info(is_alert)
         self.send_info(tx_buff)
 
+    # (5) 组织步兵转发信息0x0204,中间方法 , 将一个uint8_t的数据double_times转发给id号步兵
+    def generate_double_effect_times_to_car(self , car_id, double_times):
+        cmd_id = struct.pack('H', 0x0301)
+        data_cmd_id = struct.pack('H', 0x0204)
+        sender_id = struct.pack('H', self.my_id)
+        receiver_id = struct.pack('H', car_id)
+        data = data_cmd_id + sender_id + receiver_id + struct.pack('B', double_times)
+        data_len = len(data)
+        frame_head = self.get_frame_header(data_len)
 
+        tx_buff = frame_head + cmd_id + data
 
+        frame_tail = self.get_frame_tail(tx_buff)
 
+        tx_buff += frame_tail
+
+        return tx_buff
+
+    # (5) 发送步兵转发信息0x0204,调用方法
+    def send_double_effect_times_to_car(self , sentinel_id , double_times):
+        tx_buff = self.generate_double_effect_times_to_car(sentinel_id - 2, double_times)
+        self.send_info(tx_buff)
+        tx_buff = self.generate_double_effect_times_to_car(sentinel_id -3, double_times)
+        self.send_info(tx_buff)
 
     # 发送机器人交互数据0x0301
     '''
