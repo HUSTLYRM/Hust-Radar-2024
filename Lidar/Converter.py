@@ -267,6 +267,10 @@ class Converter:
         u = uvz[:, 0]
         v = uvz[:, 1]
         z = uvz[:, 2]
+
+        # 打印深度值的范围
+        print('Depth values range:', z.min(), z.max())
+
         # 按距离填充生成深度图，近距离覆盖远距离
         width, height = self.width , self.height
         valid = np.bitwise_and(np.bitwise_and((u >= 0), (u < width)),
@@ -287,8 +291,8 @@ class Converter:
         img_z = np.where(img_z > self.max_depth, self.max_depth, img_z)
         img_z = cv2.normalize(img_z, None, 0, 200, cv2.NORM_MINMAX, cv2.CV_8U)
         # img_z = cv2.normalize(img_z, None, 0, 200, cv2.NORM_MINMAX, cv2.CV_8U) # 远的看不到，就把最大值调小
-        img_jet = cv2.applyColorMap(img_z, cv2.COLORMAP_JET)
-        return img_jet
+        img_z = cv2.applyColorMap(img_z, cv2.COLORMAP_JET)
+        return img_z
 
     # 传入一个点云，选取距离的中值点
     def get_center_mid_distance(self, pcd):
@@ -474,7 +478,87 @@ class Converter:
 
     # 传入一个点云，返回一个点云的中心点（x,y,z）
 
+# 创建一个类 ROICapture。
+# 在初始化方法中，通过 capture 获取一张照片 ， y确定n重选，并手动框选 ROI，将选框存入成员变量中。
+# 提供一个方法 is_point_in_roi，用于判断传入的点是否落在框内。
+class ROISelector:
+    def __init__(self, capture):
+        self.capture = capture
+        self.hero_highland_points = [] # 用于存放英雄梯高的roi
+        self.sentinel_patrol_roi = [] # 用于存放哨兵巡逻区的roi
+        self.select_hero_highland_points()
+        self.select_sentinel_patrol_points()
 
+    def select_hero_highland_points(self):
+        # 初始化要用的类
+        anchor = Anchor()
+        pp = PointsPicker()
+
+        while True:
+            # 获得一张图片
+            image = self.capture.get_frame()
+            # 把image resize为1920*1080
+            show_image = cv2.resize(image, (1920, 1080))
+            cv2.imshow("hero highland clear press y else n", show_image)
+            # 接收按键，如果y则进入下一步，否则重选一张
+            key = cv2.waitKey(0)
+            if key == ord('y'):
+                pp.caller(image, anchor)
+                # 将区域四个点的坐标存入成员变量中
+                pixel_points = np.array(anchor.vertexes, dtype=np.float32)
+                self.hero_highland_points = pixel_points
+                break
+            else:
+                continue
+
+    def is_point_in_hero_highland(self, point):
+        # 判断一个点是否在英雄梯高区内，边界点是四个点
+        result = cv2.pointPolygonTest(self.hero_highland_points, point, False)
+        return result >= 0
+
+
+    def select_sentinel_patrol_points(self):
+        anchor = Anchor()
+        pp = PointsPicker()
+
+        while True:
+            # 获得一张图片
+            image = self.capture.get_frame()
+            # 把image resize为1920*1080
+            show_image = cv2.resize(image, (1920, 1080))
+            cv2.imshow("sentinel patrol clear press y else n", show_image)
+            # 接收按键，如果y则进入下一步，否则重选一张
+            key = cv2.waitKey(0)
+            if key == ord('y'):
+                pp.caller(image, anchor)
+                # 将区域四个点的坐标存入成员变量中
+                pixel_points = np.array(anchor.vertexes, dtype=np.float32)
+                self.sentinel_patrol_roi = pixel_points
+                break
+            else:
+                continue
+
+
+    # 传入一个点，判断这个点是否在哨兵巡逻区内
+    def is_point_in_sentinel_patrol(self, point):
+        # 判断一个点是否在哨兵巡逻区内，边界点是四个点
+        # point 的格式是[x,y]
+        result = cv2.pointPolygonTest(self.sentinel_patrol_roi, point, False)
+        return result >= 0
+
+    def get_sentinel_patrol_area_field_xyz(self , my_color):
+        # 传入颜色，返回预设的哨兵巡逻区的赛场坐标系的坐标
+        if my_color == 'Red':
+            return [22.63,9.42,0.5] # 蓝方哨兵巡逻区赛场中心坐标，TODO:需要填入
+        else:
+            return [5.68,6,54,0.5] # 红方哨兵巡逻区赛场中心坐标，TODO:需要填入
+
+    def get_hero_highland_area_field_xyz(self , my_color):
+        # 传入颜色，返回预设的英雄梯高区的赛场坐标系的坐标
+        if my_color == 'Red':
+            return [23.10,2.76,1]
+        else:
+            return [5.22,13.20,1]
 
 # converter = Converter()
 # # 读取../pcd_data/points/1224_indoor1.pcd

@@ -29,7 +29,7 @@ class Lidar:
         self.lidar_topic_name = cfg["lidar"]["lidar_topic_name"] # 激光雷达话题名
 
         # 点云队列
-        self.pcdQueue = PcdQueue(max_size=20) # 将激光雷达接收的点云存入点云队列中，读写上锁？
+        self.pcdQueue = PcdQueue(max_size=10) # 将激光雷达接收的点云存入点云队列中，读写上锁？
 
         # 激光雷达线程
         self.lock = threading.Lock()  # 线程锁

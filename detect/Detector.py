@@ -58,6 +58,12 @@ class Detector:
         for i in range(1000):
             self.Track_value[i] = [0] * self.class_num
         self.id_candidate = [0] * 10000
+        
+        self.Gray2Blue = {12:5,13:1,14:0,15:3,16:2,17:4}
+        self.Gray2Red = {12:11,13:7,14:6,15:9,16:8,17:10}
+        self.Blue2Gray ={v: k for k, v in self.Gray2Blue.items()}
+        self.Red2Gray ={v: k for k, v in self.Gray2Red.items()}
+        self.gray_thresh = 15
         # 设置计数器
         self.loop_times = 0
 
@@ -146,17 +152,28 @@ class Detector:
 
         label_list = []
         conf_list = []
-
-        for result in results:
+        for result,roi in zip(results,roi_list):
             data = result.boxes.data
             maxConf = -1
             label = -1
             index = -1
+            tmp = []
             for i in range(len(data)):
                 if data[i][4] > maxConf:
                     maxConf = data[i][4]
                     label = data[i][5]
                     index = i
+                    tmp=data[i]
+            if len(tmp) != 0:
+                x1,y1,x2,y2 = tmp[:4]
+                gray = roi[int(y1):int(y2),int(x1):int(x2)]
+                gray = cv2.cvtColor(gray, cv2.COLOR_BGR2GRAY)
+                if cv2.mean(gray)[0] < self.gray_thresh :
+                    if label < 6 : # Blue
+                        label = self.Blue2Gray[int(label)]
+                    else:
+                        label = self.Red2Gray[int(label)]
+                
             label_list.append(int(label))
             conf_list.append(float(maxConf))
             
@@ -244,7 +261,7 @@ class Detector:
 
             if self.loop_times % self.life_time == 1: # 0的话无法单张预测
                 for i in range(12):
-                    self.Track_value[int(track_id)][i] = math.floor(self.Track_value[int(track_id)][i] / 15)
+                    self.Track_value[int(track_id)][i] = math.floor(self.Track_value[int(track_id)][i] / 10)
 
             # 获取二阶段roi_batch
             x,y,w,h = box
@@ -270,11 +287,19 @@ class Detector:
             box = box_list[i]
             x,y,h,w = box
 
-            # classify_label,conf = self.classify_infer(frame,box)
+            status = 0 # normal
 
             # 二阶段识别次数和置信度的加权
             if classify_label != -1:
-                self.Track_value[int(track_id)][int(float(classify_label))] += 0.5 + conf * 0.5
+                label = self.Track_value[int(track_id)].index(max(self.Track_value[int(track_id)]))
+                if classify_label > 11: # is Gray
+                    status = 1
+                    if label < 6 : # is Blue
+                        self.Track_value[int(track_id)][int(float(self.Gray2Blue[classify_label]))] += 0.5 + conf * 0.5
+                    else : # is Red
+                        self.Track_value[int(track_id)][int(float(self.Gray2Red[classify_label]))] += 0.5 + conf * 0.5
+                else :
+                    self.Track_value[int(track_id)][int(float(classify_label))] += 0.5 + conf * 0.5
 
             label = self.Track_value[int(track_id)].index(max(self.Track_value[int(track_id)])) # 找到计数器最大的类别,即追踪器的分类结果
 

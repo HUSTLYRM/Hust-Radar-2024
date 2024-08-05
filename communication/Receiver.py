@@ -7,6 +7,7 @@ import threading
 from multiprocessing import Value,Process
 from Tools.Tools import Tools
 from ruamel.yaml import YAML
+from Log.Log import RadarLog
 
 class Receiver:
     def __init__(self,cfg ,shared_is_activating_double_effect , shared_enemy_health_list , shared_enemy_marked_process_list , shared_have_double_effect_times , shared_time_left , shared_dart_target):
@@ -20,6 +21,9 @@ class Receiver:
 
         # 全局变量
         self.my_color = cfg['global']['my_color']
+
+        # log
+        self.logger = RadarLog("receiver")
 
         # 串口配置
         port_list = list(serial.tools.list_ports.comports())
@@ -146,7 +150,12 @@ class Receiver:
             if not self.working_flag:
                 return
             # 0.01s如果没有接收就返回空
-            byte = self.ser.read(1)
+            try:
+                self.ser.timeout = 0.01
+                byte = self.ser.read(1)
+            except serial.SerialTimeoutException as e:
+                print("serial read timeout")
+                self.logger.log(f"time out as {e}")
             # print("finding sof")
             if byte == b'\xA5':
                 # print("find SOF")
@@ -264,8 +273,9 @@ class Receiver:
 
             if not self.working_flag:
                 print("not")
-                break
+                return
 
+            print("receiver")
 
 
             self.last_time_main_loop = Tools.frame_control_sleep(100, self.last_time_main_loop)

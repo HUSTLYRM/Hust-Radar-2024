@@ -31,6 +31,7 @@ def main_loop():
         # 获取图像
         img = capture.get_frame()
         # print(type(img))
+        # img = cv2.resize(img , (1920,1080))
         # cv2.imshow("camera", img)
 
         # 将img从numpy.ndarray转换为OpenCV图像

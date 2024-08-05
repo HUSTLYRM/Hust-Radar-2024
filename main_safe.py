@@ -22,7 +22,7 @@ import os
 # 创建一个长度为N的队列
 # tracemalloc.start()
 
-mode = "camera" # "video" or "camera"
+mode = "video" # "video" or "camera"
 save_video = True # 是否保存视频
 round = 11 # 练赛第几轮
 save_csv_threshold = 100 # 保存csv的轮数
@@ -223,7 +223,7 @@ if __name__ == '__main__':
                             print("error in roi_selector----------------------")
 
                         # 获取新xyxy_box , 原来是左上角和右下角，现在想要中心点保持不变，宽高设为原来的一半，再计算一个新的xyxy_box,可封装
-                        div_times = 1.01
+                        div_times = 1.1
                         new_w = xywh_box[2] / div_times
                         new_h = xywh_box[3] / div_times
                         new_xyxy_box = [xywh_box[0] - new_w / 2, xywh_box[1] - new_h / 2, xywh_box[0] + new_w / 2, xywh_box[1] + new_h / 2]

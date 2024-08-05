@@ -546,6 +546,7 @@ class Messager:
                 break
             # 主体代码在这里以下------------------------------------------------
             # print("time left",self.time_left)
+            # print("messager")
             self.last_main_loop_time = Tools.frame_control_sleep(self.last_main_loop_time, 10)
 
             # 更新共享内存变量
@@ -675,6 +676,8 @@ class Messager:
             #     self.last_send_time_list[(car_id % 100)-1] = time.time()
             # print("debug messager main loop")
 
+        if not self.receiver.working_flag:
+            self.receiver.stop()
 
 
 

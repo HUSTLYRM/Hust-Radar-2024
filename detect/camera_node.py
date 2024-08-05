@@ -61,8 +61,9 @@ class CameraNode:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             print(type(cv_image))
             print("after convert")
-            # cv_image = cv2.resize(cv_image, (1920, 1080))
-            self.out.write(cv_image)
+
+            # self.out.write(cv_image)
+            cv_image = cv2.resize(cv_image, (1920, 1080))
             cv2.imshow("camera", cv_image)
             cv2.waitKey(1)
 

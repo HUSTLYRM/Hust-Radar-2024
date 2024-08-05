@@ -1,5 +1,5 @@
 
-from detect.Detector_backup import Detector
+from detect.Detector import Detector
 from detect.Video import Video
 from detect.Capture import Capture
 from Lidar.Lidar import Lidar
@@ -13,11 +13,11 @@ from ruamel.yaml import YAML
 
 # 创建一个长度为N的队列
 
-mode = "camera" # "video" or "camera"
+mode = "video" # "video" or "camera"
 round = 1 #训练赛第几轮
 
 if __name__ == '__main__':
-    video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/train_record/0505/ori_data/video10.mp4"
+    video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/华科vs哈工大round1_原视频.avi"
     detector_config_path = "configs/detector_config.yaml"
     binocular_camera_cfg_path = "configs/bin_cam_config.yaml"
     main_config_path = "configs/main_config.yaml"
@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
         # out.write(image)
         # resize到1920*1080
-        image = cv2.resize(image, (1920, 1280))
+        image = cv2.resize(image, (1920, 1080))
         cv2.imshow("frame", image)
         if cv2.waitKey(1) == ord('q'):
             break

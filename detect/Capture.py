@@ -19,7 +19,7 @@ import math
 
 # Capture类的封装
 class Capture:
-    def __init__(self, binocular_camera_cfg_path = "../configs/bin_cam_config.yaml",camera_name = 'right'):
+    def __init__(self, binocular_camera_cfg_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/bin_cam_config.yaml",camera_name = 'new_cam'):
         cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
 
         self.camera_name = camera_name
@@ -423,5 +423,18 @@ class Capture:
 #     cv2.destroyAllWindows()
 #
 #
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    import time
+    capture = Capture()
+    last_time = time.time()
+    while True:
+
+        image = capture.get_frame()
+        capture.show_img(image)
+        fps = 1 / (time.time() - last_time)
+        last_time = time.time()
+        print(f"fps: {fps}")
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    capture.release()
