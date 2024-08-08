@@ -11,19 +11,24 @@ from Log.Log import RadarLog
 
 class Receiver:
     def __init__(self,cfg ,shared_is_activating_double_effect , shared_enemy_health_list , shared_enemy_marked_process_list , shared_have_double_effect_times , shared_time_left , shared_dart_target):
-        # 共享内存变量
-        self.shared_is_activating_double_effect = shared_is_activating_double_effect
-        self.shared_enemy_health_list = shared_enemy_health_list
-        self.shared_enemy_marked_process_list = shared_enemy_marked_process_list
-        self.shared_have_double_effect_times = shared_have_double_effect_times
-        self.shared_time_left = shared_time_left
-        self.shared_dart_target = shared_dart_target
-
-        # 全局变量
-        self.my_color = cfg['global']['my_color']
 
         # log
         self.logger = RadarLog("receiver")
+        # 共享内存变量
+        try:
+            self.shared_is_activating_double_effect = shared_is_activating_double_effect
+            self.shared_enemy_health_list = shared_enemy_health_list
+            self.shared_enemy_marked_process_list = shared_enemy_marked_process_list
+            self.shared_have_double_effect_times = shared_have_double_effect_times
+            self.shared_time_left = shared_time_left
+            self.shared_dart_target = shared_dart_target
+
+            # 全局变量
+            self.my_color = cfg['global']['my_color']
+
+        except Exception as e:
+            self.logger.log(f"shared init fail {e}")
+
 
         # 串口配置
         port_list = list(serial.tools.list_ports.comports())
@@ -98,7 +103,7 @@ class Receiver:
         self.dart_target = 0 #飞镖目标
 
         # 线程
-        self.threading = threading.Thread(target=self.parse_cmd_id, daemon=True)
+        # self.threading = threading.Thread(target=self.parse_cmd_id, daemon=True)
         self.working_flag = False
         self.last_time_main_loop = time.time() # 保持一秒一帧
 
@@ -112,8 +117,14 @@ class Receiver:
         self.process.start()
     # 线程关闭
     def stop(self):
-        self.working_flag = False
-        self.process.join()
+        if self.working_flag:
+            self.working_flag = False
+            self.logger.log("receiver stop")
+            self.process.terminate()  # Forcefully terminate the process
+            self.process.join()
+            self.ser.close()
+            self.logger.log(f"working status {self.working_flag}")
+
         # self.threading.join()
 
     def get_crc16_check_byte(self, data):
@@ -273,60 +284,76 @@ class Receiver:
 
         while True:
             if not self.working_flag:
+                self.logger.log("receiver process exit")
                 return
+            self.logger.log("out while is working")
 
             # 一次性读取串口缓冲区中的所有数据
             buffer += self.ser.read(self.ser.in_waiting or 1)
 
             while True:
-                # print("buffer len" , len(buffer))
-                # 检查缓冲区中是否有足够的数据来解析帧头
-                if len(buffer) < 5:
-                    break
+                if not self.working_flag:
+                    self.logger.log("receiver process exit")
+                    return
+                try:
+                    # 检查缓冲区中是否有足够的数据来解析帧头
+                    if len(buffer) < 5:
+                        self.logger.log("buffer is less than 5, real size: {}".format(len(buffer)))
+                        break
 
-                # 找到SOF
-                sof_index = buffer.find(b'\xA5')
-                if sof_index == -1:
-                    buffer = b''  # 清空缓冲区
-                    break
+                    # 找到SOF
+                    sof_index = buffer.find(b'\xA5')
+                    if sof_index == -1:
+                        buffer = b''  # 清空缓冲区
+                        print("no xa5")
+                        break
 
-                # 截取帧头
-                if len(buffer) < sof_index + 5:
-                    break
+                    # 截取帧头
+                    if len(buffer) < sof_index + 5:
+                        self.logger.log("buffer is less than sof_index + 5, real size: {}".format(len(buffer)))
+                        break
 
-                header = buffer[sof_index:sof_index + 5]
-                data_length, seq, crc8 = struct.unpack('<HBB', header[1:])
+                    header = buffer[sof_index:sof_index + 5]
+                    data_length, seq, crc8 = struct.unpack('<HBB', header[1:])
+                    self.logger.log("data_length {} iseq {}".format(data_length, seq))
 
-                # 校验CRC8
-                _header = struct.pack('B', 165) + struct.pack('H', data_length) + struct.pack('B', seq)
-                if not self.check_crc8(_header, crc8):
-                    buffer = buffer[sof_index + 1:]  # 移动到下一个字节继续查找SOF
-                    continue
+                    # 校验CRC8
+                    _header = struct.pack('B', 165) + struct.pack('H', data_length) + struct.pack('B', seq)
+                    if not self.check_crc8(_header, crc8):
+                        buffer = buffer[sof_index + 1:]  # 移动到下一个字节继续查找SOF
+                        self.logger.log("crc failed")
+                        continue
 
-                # 检查缓冲区中是否有足够的数据来解析完整的帧
-                frame_length = 5 + 2 + data_length + 2
-                if len(buffer) < sof_index + frame_length:
-                    break
+                    # 检查缓冲区中是否有足够的数据来解析完整的帧
+                    frame_length = 5 + 2 + data_length + 2
+                    if len(buffer) < sof_index + frame_length:
+                        self.logger.log("buffer is less than sof_index + frame_length({}), buffer size: {}".format(
+                            sof_index + frame_length, repr(buffer)))
+                        break
 
-                # 截取完整的帧
-                frame = buffer[sof_index:sof_index + frame_length]
-                buffer = buffer[sof_index + frame_length:]  # 移动缓冲区指针
+                    # 截取完整的帧
+                    frame = buffer[sof_index:sof_index + frame_length]
+                    buffer = buffer[sof_index + frame_length:]  # 移动缓冲区指针
 
-                # 解析帧
-                header = frame[:5]
-                rest_data = frame[5:]
-                cmd_id = rest_data[:2]
-                data = rest_data[2:-2]
-                frame_tail = rest_data[-2:]
+                    # 解析帧
+                    header = frame[:5]
+                    rest_data = frame[5:]
+                    cmd_id = rest_data[:2]
+                    data = rest_data[2:-2]
+                    frame_tail = rest_data[-2:]
 
-                # 校验CRC16
-                tx_buff = header + rest_data[:-2]
-                if not self.check_crc16(tx_buff, frame_tail):
-                    print("crc16 check fail")
-                    continue
-                # print("switch cmd id -----------------------")
-                # 处理不同的命令
-                self.switch_method(cmd_id, data)
+                    # 校验CRC16
+                    tx_buff = header + rest_data[:-2]
+                    if not self.check_crc16(tx_buff, frame_tail):
+                        print("crc16 check fail")
+                        self.logger.log("crc16 check fail")
+
+                    # 处理不同的命令
+                    self.logger.log("begin switch_method")
+                    self.switch_method(cmd_id, data)
+                    print(f"receiver working flag{self.working_flag}")
+                except Exception as e:
+                    self.logger.log(f"Exception: {e}")
 
 
     # 解析帧头和cmd_id , 所有的东西都需要保留下来，因为要用来计算crc16
@@ -375,22 +402,32 @@ class Receiver:
     # 调用这个函数来处理不同的命令
     def switch_method(self, cmd_id, data):
         cmd_id_value = struct.unpack('<H', cmd_id)[0]
-        # print(f"cmd_id: {cmd_id_value}")
-        if cmd_id_value == 0x0001: # 比赛进行时间解析
-            self.process_game_status(data)
-            # if time.time() - self.last_time_main_loop < 0.01:
-            #     # print("receiver sleep")
-            #     time.sleep(0.01 - ( time.time() - self.last_time_main_loop))
-            # self.last_time = time.time()
-        elif cmd_id_value == 0x0003:
-            self.parse_robot_status(data)
-        elif cmd_id_value == 0x020C:
-            self.parse_mark_process(data)
-        elif cmd_id_value == 0x020E:
-            self.parse_double_effect(data)
-        elif cmd_id_value == 0x0105: # 飞镖目标
-            # print("parse dart target")
-            self.parse_dart_target(data)
+        print(f"cmd_id: {cmd_id_value}")
+        self.logger.log(f"find command id{cmd_id_value}")
+        try:
+            if cmd_id_value == 0x0001: # 比赛进行时间解析
+                # print("parse time")
+                self.process_game_status(data)
+                # if time.time() - self.last_time_main_loop < 0.01:
+                #     # print("receiver sleep")
+                #     time.sleep(0.01 - ( time.time() - self.last_time_main_loop))
+                # self.last_time = time.time()
+            elif cmd_id_value == 0x0003:
+                # print("parse health")
+                self.parse_robot_status(data)
+            elif cmd_id_value == 0x020C:
+                # print("parse mark process")
+                self.parse_mark_process(data)
+            elif cmd_id_value == 0x020E:
+                # print("parse double effect")
+                self.parse_double_effect(data)
+            elif cmd_id_value == 0x0105: # 飞镖目标
+                # print("parse dart target")
+                # print("parse dart target")
+                self.parse_dart_target(data)
+        except Exception as e:
+            print(f"Error: {e}")
+            self.logger.log(f"Error in switch method: {e}")
 
         # Add conditions for other cmd_ids
 
@@ -428,6 +465,7 @@ bit 7-15：保留
         dart_target = (dart_info_value >> 5) & 0x03
 
         print(f"Dart target: {dart_target}")
+        self.logger.log(f"Dart target: {dart_target}")
         # hit_target = data[1] & 0x06
         # print(struct.unpack('H',data[1]))
         self.shared_dart_target.value = dart_target
@@ -453,6 +491,7 @@ bit 7-15：保留
     def process_game_status(self,data):
         time_left = data[1]+data[2]*256
         self.shared_time_left.value = time_left
+        self.logger.log(f"Time left: {time_left}")
         # print(f"Time left: {time_left}")
 
     # 获取比赛剩余时间
@@ -516,6 +555,8 @@ bit 7-15：保留
         for i in range(6):
             self.shared_enemy_marked_process_list[i] = mark_process[i]
 
+        self.logger.log(f"Mark process: {mark_process}")
+
         return mark_process
 
 
@@ -538,6 +579,8 @@ bit 7-15：保留
         # 更新共享内存或类变量
         self.shared_is_activating_double_effect.value = is_double_effect_active
         self.shared_have_double_effect_times.value = double_effect_chance
+
+        self.logger.log(f"Double effect chance: {double_effect_chance}, is double effect active: {is_double_effect_active}")
 
         return double_effect_chance, is_double_effect_active
 

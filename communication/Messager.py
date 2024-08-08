@@ -192,6 +192,7 @@ class Messager:
     def update_shared_time_left(self):
         if self.shared_time_left.value != self.time_left:
             self.time_left = self.shared_time_left.value
+            self.logger.log(f"update time left{self.time_left}")
         # else:
         #     print(f"shared time left{self.shared_time_left} and local time left{self.time_left}")
 
@@ -310,8 +311,9 @@ class Messager:
 
     # 关闭线程
     def stop(self):
+        self.logger.log("Messager stop")
         self.working_flag = False
-        self.receiver.stop()
+        # self.receiver.stop()
         # self.threading.join()
 
     # 更新剩余时间
@@ -462,16 +464,20 @@ class Messager:
 
     # 根据已发送情况自动标号发双倍易伤
     def auto_send_double_effect_decision(self):
-        self.sender.send_radar_double_effect_info(self.already_activate_double_effect_times + 1)
+        # self.sender.send_radar_double_effect_info(self.already_activate_double_effect_times + 1)
+        self.sender.send_radar_double_effect_info(2)
+        self.sender.send_radar_double_effect_info(1)
+
     # 新双倍易伤发送机制
     def send_double_effect_decision(self):
         # 如果没有双倍易伤机会或正在触发双倍易伤，不发送
         if self.have_double_effect_times == 0 or self.is_activating_double_effect or self.already_activate_double_effect_times == 2 :
             # print("no double times status",self.have_double_effect_times , self.is_activating_double_effect , self.already_activate_double_effect_times)
-            return
+            # return
+            pass
 
         # 如果对面英雄存活，且英雄在危险区域，且英雄被标记或发现次数超过阈值，发送双倍易伤
-        if (not self.hero_is_dead and self.is_alert_hero and (self.hero_is_marked or self.find_hero_times >= self.send_double_threshold)):
+        if (self.is_alert_hero and (self.hero_is_marked or self.find_hero_times >= self.send_double_threshold)):
             # 关于已发送次数的计算，考虑读取是否正在触发双倍以上，如果从正在触发变为未触发，则计算已发送次数+1，在此期间请求的仍为上一次的次数，视作不合法不会触发第二次双倍易伤请求
             # 本次结束后，下降沿修改次数加一，则下次调用时自动加一，能触发第二次
             self.auto_send_double_effect_decision()
@@ -552,6 +558,7 @@ class Messager:
             print(f"Read map image error: {e}")
             # 随便创建一个全白的map_image
             map_image = np.ones((480, 640, 3), np.uint8) * 255
+            self.status_logger.log(f"image create error {e}")
 
         while True:
             # 线程判断，主体代码不能超过这里
@@ -559,15 +566,20 @@ class Messager:
                 # print("messager stop")
                 break
             # 主体代码在这里以下------------------------------------------------
-            # print("time left",self.time_left)
+            print("time left",self.time_left)
             # print("messager")
             self.last_main_loop_time = Tools.frame_control_sleep(self.last_main_loop_time, 10)
 
             # 更新共享内存变量
-            self.update_shared_info()
-            # 解析本地flag，更新flag
-            self.update_flags()
-
+            try:
+                self.update_shared_info()
+                # 解析本地flag，更新flag
+                self.update_flags()
+            except Exception as e:
+                self.logger.log(f"update error{e}")
+            # 如果时间不为-1 ， 存剩余时间
+            if self.time_left != -1:
+                self.logger.log(f"Time left: {self.time_left}")
             # 更新英雄预警
 
             show_map_image = copy.deepcopy(map_image)
@@ -585,6 +597,8 @@ class Messager:
 
             # 发送自主决策信息
             self.send_double_effect_decision()
+            # self.sender.send_radar_double_effect_info(2)
+            self.sender.send_radar_double_effect_info(1)
             # self.logger.log("send double effect decision")
 
             # 发送哨兵预警信息
@@ -610,8 +624,14 @@ class Messager:
                 self.send_map_info_is_latest[i] -= 1 if self.send_map_info_is_latest[i] > 0 else 0
 
             for i , life_time in enumerate(self.send_map_info_is_latest):
-                if life_time <= 0:
-                    self.send_map_infos[i] = [0,0]
+                if life_time <= 0 :
+                    if i == 0 and 330 <= self.time_left <= 405:
+                        if self.my_color == "Red":
+                            self.send_map_infos[i] = [18.1, 2.6]
+                        else:
+                            self.send_map_infos[i] = [11.4, 13.25]
+                    else:
+                        self.send_map_infos[i] = [0,0]
 
 
 
@@ -658,7 +678,7 @@ class Messager:
             # 打印打包好后的信息
             # print("send_map_infos",self.send_map_infos)
             # 发送 , 采用skip的方式控制发送频率，不用sleep影响主线程的帧率
-            is_skip , self.last_send_map_time = Tools.frame_control_skip(self.last_send_map_time, 5)
+            is_skip , self.last_send_map_time = Tools.frame_control_skip(self.last_send_map_time, 10)
             if not is_skip:
                 self.send_map(self.send_map_infos)
             # print("send_map" ,  car_id , x , y)

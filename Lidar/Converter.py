@@ -546,19 +546,19 @@ class ROISelector:
         result = cv2.pointPolygonTest(self.sentinel_patrol_roi, point, False)
         return result >= 0
 
-    def get_sentinel_patrol_area_field_xyz(self , my_color):
+    def get_sentinel_patrol_area_field_xyz (self , my_color):
         # 传入颜色，返回预设的哨兵巡逻区的赛场坐标系的坐标
         if my_color == 'Red':
-            return [22.63,9.42,0.5] # 蓝方哨兵巡逻区赛场中心坐标，
+            return np.array([22.63,9.42,0.5] )# 蓝方哨兵巡逻区赛场中心坐标，
         else:
-            return [5.68,6,54,0.5] # 红方哨兵巡逻区赛场中心坐标，
+            return np.array([5.68,6.54,0.5]) # 红方哨兵巡逻区赛场中心坐标，
 
     def get_hero_highland_area_field_xyz(self , my_color):
         # 传入颜色，返回预设的英雄梯高区的赛场坐标系的坐标
         if my_color == 'Red':
-            return [23.10,2.76,1]
+            return np.array([23.10,2.76,1])
         else:
-            return [5.22,13.20,1]
+            return np.array([5.22,13.20,1])
 
 # converter = Converter()
 # # 读取../pcd_data/points/1224_indoor1.pcd

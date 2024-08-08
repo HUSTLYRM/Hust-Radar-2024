@@ -1,6 +1,6 @@
 
 from communication.Messager import Messager
-from detect.Detector import Detector
+from new_detect.Detector import Detector
 from detect.Video import Video
 from detect.Capture import Capture
 from Lidar.Lidar import Lidar
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     start_time = time.time()
     # fps计算
     N = 10
-    fps_queue = deque(maxlen=N)
+    fps_queue = deque(maxlen=10)
 
 
     # 开启激光雷达线程
@@ -152,6 +152,8 @@ if __name__ == '__main__':
             # 需要打包一份给carList
             carList_results = []
             result_img = None
+            # 特殊区域直接赋值到enemy_car_infos的暂时数据 , track_id , car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
+            temp_additional_info = []
             # 确保推理结果不为空且可以解包
             if infer_result is not None:
                 # print(infer_result)
@@ -204,12 +206,14 @@ if __name__ == '__main__':
                         # print("xywh",xywh_box)
                         # print("label",label)
                         # 对于高地和哨兵巡逻区的直接赋值特殊处理
+
                         try:
                             if roi_selector.is_point_in_hero_highland([xywh_box[0],xywh_box[1]]):
                                 temp_center = np.array([1,1,1])
-                                field_xyz = roi_selector.get_hero_highland_field_xyz(global_my_color)
+                                field_xyz = roi_selector.get_hero_highland_area_field_xyz(global_my_color)
                                 carList_results.append(
                                     [10000+carList.get_car_id(label), carList.get_car_id(label), xywh_box, 1, temp_center, field_xyz])
+
                                 continue
                             if roi_selector.is_point_in_sentinel_patrol([xywh_box[0],xywh_box[1]]):
                                 temp_center = np.array([1,1,1])
@@ -452,10 +456,14 @@ if __name__ == '__main__':
         print(4)
 
         print(4.5)
+        messager.receiver.stop()
+
+        print(6)
+        messager.stop()
+        print(7)
         lidar.stop()
         print(5)
-        messager.stop()
-        print(6)
+
 
 
 
