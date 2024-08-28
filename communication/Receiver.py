@@ -14,6 +14,7 @@ class Receiver:
 
         # log
         self.logger = RadarLog("receiver")
+        self.buffer_logger = RadarLog("buffer")
         # 共享内存变量
         try:
             self.shared_is_activating_double_effect = shared_is_activating_double_effect
@@ -278,6 +279,10 @@ class Receiver:
             # 处理不同的命令
             self.switch_method(cmd_id, data)
 
+    # 存log
+    def log_buffer_content(self, buffer):
+        self.buffer_logger.log(f"Buffer content: {buffer.hex()}")
+
     # 批量解析所有帧
     def parse_cmd_id_batch(self):
         buffer = b''  # 初始化缓冲区
@@ -290,7 +295,10 @@ class Receiver:
 
             # 一次性读取串口缓冲区中的所有数据
             buffer += self.ser.read(self.ser.in_waiting or 1)
-
+            try:
+                self.log_buffer_content(buffer)
+            except Exception as e:
+                self.logger.log(f"buffer save Error: {e}")
             while True:
                 if not self.working_flag:
                     self.logger.log("receiver process exit")
@@ -401,7 +409,11 @@ class Receiver:
 
     # 调用这个函数来处理不同的命令
     def switch_method(self, cmd_id, data):
-        cmd_id_value = struct.unpack('<H', cmd_id)[0]
+        try:
+            cmd_id_value = struct.unpack('<H', cmd_id)[0]
+        except Exception as e:
+            print(f"Error: {e}")
+            self.logger.log(f"Error in switch method: {e}")
         print(f"cmd_id: {cmd_id_value}")
         self.logger.log(f"find command id{cmd_id_value}")
         try:
