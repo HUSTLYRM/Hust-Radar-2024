@@ -6,21 +6,14 @@ from detect.Capture import Capture
 from Lidar.Lidar import Lidar
 from Lidar.Converter import Converter , ROISelector
 from Log.Log import RadarLog
-from Lidar.PointCloud import PcdQueue
 from Car.Car import *
 import numpy as np
-import pandas as pd
-import threading
 import cv2
 import time
 import open3d as o3d
 from collections import deque
 from ruamel.yaml import YAML
 import os
-# import tracemalloc
-
-# 创建一个长度为N的队列
-# tracemalloc.start()
 
 mode = "camera" # "video" or "camera"
 save_video = True # 是否保存视频
@@ -113,24 +106,6 @@ if __name__ == '__main__':
     try:
         # 主循环
         while True:
-            # print("main loop")
-            # 读取frame
-            # 开始计时
-            # test_time_start = time.time()
-            # frame = capture.get_frame()
-            # # 结束计时
-            # test_time_end = time.time()
-            # # 计算用时多少ms
-            # print("time:", (test_time_end - test_time_start) * 1000)
-
-            # if frame is not None and frame.size > 0:
-            #     # cv2.imshow("ori", frame)
-            # else:
-            #     print("end")
-            # 控制主循环最高10帧
-            # if time.time() - last_time_main_loop < 0.1:
-            #     continue
-            # last_time_main_loop = time.time()
 
             # 计算fps
             now = time.time()
@@ -144,16 +119,13 @@ if __name__ == '__main__':
             print("fps:",avg_fps)
 
             # 获得推理结果
-            # print("try to get infer result")
             infer_result = detector.get_results()
-            # print("get infer result")
-            # print("infer_result:",infer_result)
-            # carList_results , # result in carList_results: [track_id , car_id , xywh , conf ,  camera_xyz , filed_xyz ]
+
             # 需要打包一份给carList
             carList_results = []
             result_img = None
-            # 特殊区域直接赋值到enemy_car_infos的暂时数据 , track_id , car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
-            temp_additional_info = []
+
+
             # 确保推理结果不为空且可以解包
             if infer_result is not None:
                 # print(infer_result)
@@ -164,33 +136,24 @@ if __name__ == '__main__':
                     if lidar.pcdQueue.point_num == 0:
                         print("no pcd")
                         continue
-                    # print("pcd num:",lidar.pcdQueue.point_num)
+
                     pc_all = lidar.get_all_pc()
-                    # pc_all_copy = np.array(pc_all)
+
 
                     # 创建总体点云pcd
                     pcd_all = o3d.geometry.PointCloud()
                     pcd_all.points = o3d.utility.Vector3dVector(pc_all)
 
-                    # pc_all暂时后面没用了，可以直接创建一个深度图
-
-                    # cv2.waitKey(1)
 
                     # 将总体点云转到相机坐标系下
                     converter.lidar_to_camera(pcd_all)
-
-                    # 将pcd_all的pc复制一份
-                    # pc_all_copy = np.array(pcd_all.points)
-                    # depth_map = converter.generate_depth_map(pc=pc_all_copy)
-                    # depth_map = cv2.resize(depth_map, (1920, 1080))
-                    # cv2.imshow("depth_map", depth_map)
 
                     # 检测框对应点云
                     box_pcd = o3d.geometry.PointCloud()
 
                     # 对每个结果进行分析 , 进行目标定位
                     for result in results:
-                        print("result handle")
+
                         # 对每个检测框进行处理，获取对应点云
                         # 结果：[xyxy_box, xywh_box , track_id , label ]
                         xyxy_box, xywh_box ,  track_id , label = result # xywh的xy是中心点的xy
@@ -202,9 +165,6 @@ if __name__ == '__main__':
                             continue
                         if global_my_color == "Blue" and carList.get_car_id(label) > 100 and carList.get_car_id(label) != 107:
                             continue
-                        # print("xyxy",xyxy_box)
-                        # print("xywh",xywh_box)
-                        # print("label",label)
                         # 对于高地和哨兵巡逻区的直接赋值特殊处理
 
                         try:
@@ -240,9 +200,6 @@ if __name__ == '__main__':
                             print("no points in box")
                             continue
 
-
-                        # print(len(box_pc))
-                        # 将box_pc存入o3d的pcd
                         box_pcd.points = o3d.utility.Vector3dVector(box_pc)
 
                         # 点云过滤
@@ -251,29 +208,21 @@ if __name__ == '__main__':
                         # 获取box_pcd的中心点
                         cluster_result = converter.cluster(box_pcd) # 也就6帧变7帧，还是启用
 
-                
                         _, center = cluster_result
                         # # 如果聚类结果为空，则用中值取点
                         if center[0] == 0 and center[1] == 0 and center[2] == 0:
                             center = converter.get_center_mid_distance(box_pcd)
-
-                        # 取box_pcd 的距离中值点
-                        # center = converter.get_center_mid_distance(box_pcd)
-
 
 
                         # 计算距离
                         distance = converter.get_distance(center)
                         if distance == 0:
                             continue
-                        # print("xyz:",center,"distance:",distance)
 
                         # 将点转到赛场坐标系下 ， 此处未完成，返回的是[]
                         field_xyz = converter.camera_to_field(center)
                         # 计算赛场坐标系下的距离
                         field_distance = converter.get_distance(field_xyz)
-                        # print("field xyz",field_xyz)
-                        # print("field distance",field_distance)
 
                         # 在图像上写距离,位置为xyxy_box的左上角,可以去掉
                         if is_debug:
@@ -282,16 +231,11 @@ if __name__ == '__main__':
                                         cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 122), 2)
 
                         # 将结果打包
-                        # carList_results , # result in carList_results: [track_id , car_id , xywh , conf ,  camera_xyz , filed_xyz ]
                         carList_results.append([track_id , carList.get_car_id(label) , xywh_box , 1 , center , field_xyz])
 
                     # 将结果传入carList
             carList.update_car_info(carList_results)
 
-
-            # 我方颜色
-            # my_color = carList.my_color
-            # print(my_color)
 
             all_infos = carList.get_all_info() # 此步不做trust的筛选，留给messager做
             my_car_infos = []
@@ -302,17 +246,12 @@ if __name__ == '__main__':
                 track_id , car_id , center_xy , camera_xyz , field_xyz , color , is_valid = all_info
 
 
-
-                # print("car_id:",car_id,"center_xy:",center_xy,"camera_xyz:",camera_xyz,"field_xyz:",field_xyz ,"color:",color , "is_valid:",is_valid)
-                # print("mc",my_color,"mc","c",color,"c")
                 # 将信息分两个列表存储
                 if color == global_my_color:
-                    #print("same")
                     if track_id == -1:
                         continue
                     my_car_infos.append(all_info)
                 else:
-                    #print("dif")
                     enemy_car_infos.append(all_info)
                     if track_id != -1:
                         # 将每个检测结果添加到列表中，增加frame_id作为每一帧的ID
@@ -393,40 +332,8 @@ if __name__ == '__main__':
                 result_img = cv2.resize(result_img, (1920, 1080))
             if save_video:
                 out.write(result_img)
-            if is_save_log:
-                print("save log")
-                # for detection in all_detections:
-                #     print(detection[2],detection[3] , detection[4].,detection[5],detection[6],detection[7])
-                #     logging.info(str(detection))
-                all_detections = []
-            # 检测写入次数，超过阈值时写入Excel
-            # if is_save_csv and counter >= save_csv_threshold:
-            #     xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
-            #     with pd.ExcelWriter(xlsx_file_name, mode='a', engine='openpyxl') as writer:
-            #         # 这里使用了 mode='a'，表示追加数据，不会覆盖原始文件
-            #         # 如果文件不存在，将会创建新文件
-            #         df = pd.DataFrame(all_detections,
-            #                           columns=['frame_id', 'track_id', 'car_id', 'center_xy', 'camera_xyz', 'field_xyz',
-            #                                    'color', 'is_valid'])
-            #         df.to_excel(writer, index=False)
-            #
-            #     # 一旦数据写入完成，重置计数器和检测列表，为下一轮写入做准备
-            #     counter = 0
-            #     all_detections = []
-            # counter += 1
-            # 绘值draw_queue的图
 
-            # 如果队列中有图片则绘值
-            # if len(draw_queue) > 0:
-            #     try:
-            #         draw_image = draw_queue.popleft()
-            #         #
-            #     except Exception as e:
-            #         print(e)
-
-
-
-            if is_debug:
+            if is_debug: # 用于调试
                 cv2.imshow("frame", result_img) # 不加3帧
             frame_id += 1
             if cv2.waitKey(1) == ord('q'):
@@ -435,12 +342,8 @@ if __name__ == '__main__':
         print("keyboard")
         pass
     finally: #确保程序结束时关闭所有线程
-        # 循环结束，将检测结果写入xlsx文件
+
         print("finally")
-        # df = pd.DataFrame(all_detections,columns=['frame_id', 'car_id', 'center_xy', 'camera_xyz', 'field_xyz', 'color'])
-        # 将结果写入xlsx文件中，文件名使用保存视频文件名但后缀修改为xlsx
-        # xlsx_file_name = video_save_path.replace('.mp4', '.xlsx')
-        # df.to_excel(xlsx_file_name, index=False)
 
         cv2.destroyAllWindows()
         if save_video:
@@ -458,18 +361,8 @@ if __name__ == '__main__':
         print(4.5)
         messager.receiver.stop()
 
-        print(6)
-        messager.stop()
-        print(7)
-        lidar.stop()
         print(5)
-
-
-
-
-# snapshot = tracemalloc.take_snapshot()
-# top_stats = snapshot.statistics('lineno')
-#
-# # 打印报告
-# for stat in top_stats[:10]:
-#     print(stat)
+        messager.stop()
+        print(6)
+        lidar.stop()
+        print(7)
