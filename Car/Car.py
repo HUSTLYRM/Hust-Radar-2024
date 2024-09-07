@@ -52,20 +52,11 @@ class Car:
 
     # 中间refresh函数,初始化所有解算信息
     def refresh(self):
-        # self.track_id = -1
-        # self.conf = 0
-        # self.image_xywh = []
-        # self.image_xyxy = []
-        # self.center_xy = []
-        # self.camera_xyz = []
-        # self.field_xyz = []
-        # self.field_xy = []
         self.trust = False
 
     # 如果本帧没有检测此车，生命周期减一
     def life_down(self):
-        # if self.track_id == -1: # 如果本来就掉追踪了，直接返回
-        #     return
+
         if not self.trust: # 如果已经不可信了
             return
         self.life_span -= 1
