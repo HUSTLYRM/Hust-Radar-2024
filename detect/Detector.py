@@ -42,25 +42,29 @@ class Detector:
         self.model_car = YOLO(self.cfg['path']['stage_one_path'] , task = "detect")
 
         self.model_car2 = YOLO(self.cfg['path']['stage_two_path'])
+        self.model_car3 = YOLO(self.cfg['path']['stage_three_path'])
         print('Done\n')
         # 设置参数
         self.tracker_path = self.cfg['path']['tracker_path']
         # print(self.tracker_path)
         self.stage_one_conf = self.cfg['params']['stage_one_conf']
         self.stage_two_conf = self.cfg['params']['stage_two_conf']
+        self.stage_three_conf = self.cfg['params']['stage_three_conf']
         self.life_time = self.cfg['params']['life_time'] # 生命周期
         self.id_candidate = [0] * 1000
 
         self.labels = self.cfg['params']['labels'] # 类别标签列表
         # 由labels长度初始化class_num
         self.class_num = len(self.labels) # 类别数量
+        self.Status = [0] * 10000
         self.Track_value = {} # 这是tracker的track_id和类别的字典，主键是追踪器编号，值是一个列表，记录每个类别的识别次数。每个追踪器有所有类别的识别次数
-        for i in range(1000):
+        for i in range(10000):
             self.Track_value[i] = [0] * self.class_num
         self.id_candidate = [0] * 10000
         
         self.Gray2Blue = {12:5,13:1,14:0,15:3,16:2,17:4}
         self.Gray2Red = {12:11,13:7,14:6,15:9,16:8,17:10}
+        self.gray2gray = {0:14,1:13,2:16,3:15,4:17,5:12}
         self.Blue2Gray ={v: k for k, v in self.Gray2Blue.items()}
         self.Red2Gray ={v: k for k, v in self.Gray2Red.items()}
         self.gray_thresh = 15
@@ -117,7 +121,7 @@ class Detector:
             self.working_flag = False
 
 
-            # self.threading.join()
+            self.threading.join()
 
     # 清除
     def release(self):
@@ -146,33 +150,48 @@ class Detector:
 
 
         
-        results = self.model_car2.predict(roi_list, conf=0.5, iou=0.7 , device = 0 ,verbose = False  )
+        results = self.model_car2.predict(roi_list, conf = self.stage_two_conf , device = 0 ,verbose = False  )
         if len(results) == 0:  # no detect
             return -1
-
+        gray_results = self.model_car3.predict(roi_list , verbose = False)
         label_list = []
         conf_list = []
-        for result,roi in zip(results,roi_list):
+        for result,gray_result,roi in zip(results,gray_results,roi_list):
+            roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
             data = result.boxes.data
-            maxConf = -1
+            gray_data = gray_result.boxes.data
+            maxConf = 0
+            maxGrayConf = 0
             label = -1
-            index = -1
+            gray_label = -1
+            gray_tmp = []
             tmp = []
+            
+            for i in range(len(gray_data)):
+                if gray_data[i][4] > maxGrayConf:
+                    maxGrayConf = gray_data[i][4]
+                    gray_label = gray_data[i][5]
+                    gray_tmp = gray_data[i]
+            
             for i in range(len(data)):
                 if data[i][4] > maxConf:
                     maxConf = data[i][4]
                     label = data[i][5]
-                    index = i
                     tmp=data[i]
+                    
             if len(tmp) != 0:
                 x1,y1,x2,y2 = tmp[:4]
                 gray = roi[int(y1):int(y2),int(x1):int(x2)]
-                gray = cv2.cvtColor(gray, cv2.COLOR_BGR2GRAY)
-                if cv2.mean(gray)[0] < self.gray_thresh :
-                    if label < 6 : # Blue
-                        label = self.Blue2Gray[int(label)]
-                    else:
-                        label = self.Red2Gray[int(label)]
+                if label < 6 and cv2.mean(gray)[0] < 35: # 蓝色阈值可以高些
+                    label = self.Blue2Gray[int(label)]
+                elif label > 5 and cv2.mean(gray)[0] < 15: # 红色阈值更低
+                    label = self.Red2Gray[int(label)]
+            else: 
+                if len(gray_tmp) != 0: #大概率是灰色了
+                    x1,y1,x2,y2 = gray_tmp[:4]
+                    gray = roi[int(y1):int(y2),int(x1):int(x2)]
+                    if cv2.mean(gray)[0] < 30:
+                        label = self.gray2gray[int(gray_label)]
                 
             label_list.append(int(label))
             conf_list.append(float(maxConf))
@@ -291,15 +310,27 @@ class Detector:
 
             # 二阶段识别次数和置信度的加权
             if classify_label != -1:
-                label = self.Track_value[int(track_id)].index(max(self.Track_value[int(track_id)]))
-                if classify_label > 11: # is Gray
-                    status = 1
-                    if label < 6 : # is Blue
-                        self.Track_value[int(track_id)][int(float(self.Gray2Blue[classify_label]))] += 0.5 + conf * 0.5
-                    else : # is Red
-                        self.Track_value[int(track_id)][int(float(self.Gray2Red[classify_label]))] += 0.5 + conf * 0.5
-                else :
-                    self.Track_value[int(track_id)][int(float(classify_label))] += 0.5 + conf * 0.5
+                    label = self.Track_value[int(track_id)].index(max(self.Track_value[int(track_id)]))
+                    # if track_id == 123:
+                    #     print(classify_label)
+                    if classify_label > 11: # is Gray
+                        status = 1
+                        if self.Status[track_id] < 6:
+                            self.Status[track_id] += status
+                        if label < 6 and self.Gray2Blue[classify_label] == label: # is Blue
+                            self.Track_value[int(track_id)][int(float(self.Gray2Blue[classify_label]))] += 0.5 + conf * 0.5
+                        elif label > 5 and self.Gray2Red[classify_label] == label : # is Red
+                            self.Track_value[int(track_id)][int(float(self.Gray2Red[classify_label]))] += 0.5 + conf * 0.5
+                        else:
+                            classify_label = -1
+                        
+                    else :
+                        # print(track_id)
+                        if self.Status[int(track_id)] > 0:
+                            self.Status[int(track_id)] -= 1
+                        if self.Status[int(track_id)] < 4 :
+                            self.Status[int(track_id)] = 0
+                        self.Track_value[int(track_id)][int(float(classify_label))] += 0.5 + conf * 0.5
 
             label = self.Track_value[int(track_id)].index(max(self.Track_value[int(track_id)])) # 找到计数器最大的类别,即追踪器的分类结果
 
@@ -351,9 +382,9 @@ class Detector:
 
             xywh_box = [x,y,w,h]
             xyxy_box = [x_left,y_left,x_right,y_right]
-            # score = self.Track_value[int(track_id)][int(float(classify_label))]
+
             draw_candidate.append([track_id, x_left, y_left, x_right, y_right, label])
-            # print("in",xyxy_box,xywh_box)
+
             zip_results.append([xyxy_box, xywh_box , track_id , label ])
 
             self.id_candidate[track_id] = index
@@ -363,7 +394,7 @@ class Detector:
         for box in draw_candidate:
             track_id, x_left, y_left, x_right, y_right, label = box
             cv2.rectangle(frame, (x_left, y_left), (x_right, y_right), (255, 128, 0), 3, 8)
-            cv2.putText(frame, label, (int(x_left - 10), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
+            cv2.putText(frame, label, (int(x_left - 10), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
                         (0, 255, 122), 2)
             cv2.putText(frame, str(track_id), (int(x_right + 5), int(y_right + 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
                         (0, 255, 122), 2)
@@ -436,98 +467,4 @@ class Detector:
 
 
 
-
-
-
-# 检测模型
-# print('Loading Car Model')
-# model_car = YOLO("../weights/train/stage_one/weights/best.pt")
-# model_car2 = YOLO("../weights/train/stage_two/weights/best.pt")
-# print('Done\n')
-#
-# id_label = {}
-# for i in range(1000):
-#     id_label[i] = [0] * 12
-#
-# labels = ["B1", "B2", "B3", "B4", "B5", "B7", "R1", "R2", "R3", "R4", "R5", "R7"]
-#
-
-# Classify function
-# def classify(frame, box):
-#     x, y, w, h = box
-#     x_left = x - w / 2
-#     y_left = y - h / 2
-#
-#     roi = frame[int(y_left): int(y_left + h), int(x_left): int(x_left + w)]
-#
-#     results = model_car2.predict(roi, conf=0.5, iou=0.7)
-#     maxConf = -1
-#     label = -1
-#     if len(results) == 0:  # no detect
-#         return -1
-#     for result in results:
-#         data = result.boxes.data
-#         for i in range(len(data)):
-#             if data[i][4] > maxConf:
-#                 maxConf = data[i][4]
-#                 label = data[i][5]
-#
-#     return int(label)
-#
-# # 加载配置文件
-# main_cfg_path = "../configs/main_config.yaml"
-# binocular_camera_cfg_path = "../configs/bin_cam_config.yaml"
-# main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
-# bin_cam_cfg = YAML().load(open(binocular_camera_cfg_path, encoding='Utf-8', mode='r'))
-# detector_config_path = "../configs/detector_config.yaml"
-# def main():
-#     print("Loading right camera")
-#     # capture初始化
-#     capture = Capture(binocular_camera_cfg_path, 'new_cam')
-#     detector = Detector(detector_config_path)
-#     print("Done")
-#
-#     # 计算fps
-#     last_time = time.time()-1
-#
-#     while True:
-#
-#
-#         # 获取图像`
-#         frame = capture.get_frame()
-#
-#         # 计算fps
-#         now = time.time()
-#         fps = 1 / (now - last_time)
-#         # print("fps: ", fps)
-#         last_time = now
-#
-#         # 如果按下q，那么停止循环
-#         if cv2.waitKey(1) == ord('q'):
-#             break
-#
-#         result_img = detector.infer(frame)
-#         # if results is not None:
-#         #     # 提取results并画上结果
-#         #     for box, result, conf in results:
-#         #        frame = detector.draw_result(frame, box, result, conf)
-#
-#         # 绘制fps
-#         cv2.putText(frame, "fps: " + str(fps), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 122), 2)
-#         capture.show_img(result_img)
-#
-#
-#
-#         # 确定我们有一幅生效的图片
-#         detector.loop_times += 1
-#
-#     # 关闭摄像头
-#     capture.camera_close()
-#
-#     # 关闭所有 OpenCV 窗口
-#     cv2.destroyAllWindows()
-#
-#
-# if __name__ == '__main__':
-#     main()
 

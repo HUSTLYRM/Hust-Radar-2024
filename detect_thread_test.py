@@ -8,7 +8,6 @@ from collections import deque
 from ruamel.yaml import YAML
 import threading
 
-# 创建一个长度为N的队列
 
 mode = "video"  # "video" or "camera"
 round = 1  # 训练赛第几轮
@@ -22,15 +21,12 @@ if __name__ == '__main__':
 
     # 类初始化
     detector = Detector(detector_config_path)
-    # lidar = Lidar(main_cfg)
 
     if mode == "video":
         capture = Video(video_path)
     elif mode == "camera":
         capture = Capture(binocular_camera_cfg_path, "new_cam")
 
-    # fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用mp4编码器
-    # out = cv2.VideoWriter(f'only_detect{round}.mp4', fourcc, 24, (capture.width,capture.height))  # 文件名，编码器，帧率，帧大小
 
     # fps计算
     N = 10
@@ -40,13 +36,9 @@ if __name__ == '__main__':
     # 启动图像处理子线程
     threading.Thread(target=detector.detect_thread, args=(capture,), daemon=True).start()
 
-    # 开启激光雷达线程
-    # lidar.start()
 
     # 主循环
     while True:
-        # print("main loop")
-        # 读取frame
 
 
         # 计算fps
@@ -60,7 +52,6 @@ if __name__ == '__main__':
 
         infer_result = detector.get_results()
         if infer_result is not None and len(infer_result) == 2:
-            # print(infer_result)
             result_img, zip_results = infer_result
 
             cv2.imshow("result", result_img)
@@ -68,12 +59,9 @@ if __name__ == '__main__':
 
         print("out:",avg_fps)
 
-
         if cv2.waitKey(1) == ord('q'):
             break
 
-    # lidar.stop()
-    # out.release()
     capture.release()
 
     cv2.destroyAllWindows()

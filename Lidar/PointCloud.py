@@ -35,7 +35,7 @@ class PcdQueue(object):
         self.record_times = 0 # 已存点云的次数
         self.point_num = 0 # 已存点的数量
 
-    # 目前是每次添加都会把所有点云转为voxel，然后更新voxel,TODO：改为存pc类型，不是pcd
+    # 添加一个点云
     def add(self, pc): # 传入的是pc
         self.queue.append(pc) # 传入的是点云，一份点云占deque的一个位置
         # print("append")
@@ -50,18 +50,9 @@ class PcdQueue(object):
 
     # 把每个queue里的pc:[[x1,y1,z1],[x2,y2,x2],...]的点云合并到一个numpy数组中
     def update_pc_all(self):
-        # print("update")
-        # # 清空pc_all
-        # self.pc_all = []
-        # #print(self.queue)
-        # # 把queue里的每个pc的点云提取，转为一个整体的numpy数组
-        # for pc in self.queue:
-        #     #print(pc)
-        #     self.pc_all.append(pc)
-        # # 将pc_all转换为一个扁平的numpy数组，包含所有的点
-        # self.pc_all = np.concatenate(self.pc_all, axis=0)
+
         self.pc_all = np.vstack(self.queue)
-        # print(len(self.pc_all))
+
 
     def is_full(self):
         return self.record_times == self.max_size
@@ -127,7 +118,7 @@ class PcdQueue(object):
 
         # 取中值点
         median_distance = np.median(distance)
-        # print("测据:", median_distance)
+
         # 取中值点的索引
         median_index = np.where(distance == median_distance)
         # 取中值点

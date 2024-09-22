@@ -1,6 +1,6 @@
 
 from communication.Messager import Messager
-from new_detect.Detector import Detector
+from detect.Detector import Detector
 from detect.Video import Video
 from detect.Capture import Capture
 from Lidar.Lidar import Lidar
@@ -15,12 +15,8 @@ from collections import deque
 from ruamel.yaml import YAML
 import os
 
-mode = "camera" # "video" or "camera"
+mode = "video" # "video" or "camera" , 如果纯视频模式选用video,需要播放录制livox mid-70的rosbag获得点云信息
 save_video = True # 是否保存视频
-round = 11 # 练赛第几轮
-save_csv_threshold = 100 # 保存csv的轮数
-is_save_csv = False
-is_save_log = True
 
 if __name__ == '__main__':
     video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/华科vs哈工大round1_原视频.avi"
@@ -75,7 +71,7 @@ if __name__ == '__main__':
     converter.camera_to_field_init(capture)
 
     # ROI初始化
-    roi_selector = ROISelector(capture)
+    # roi_selector = ROISelector(capture)
 
     start_time = time.time()
     # fps计算
@@ -95,8 +91,6 @@ if __name__ == '__main__':
 
     # 当前帧ID
     frame_id = 1
-    # 控制主循环最高10帧
-    # last_time_main_loop = time.time()
     counter = 0
 
     # 可视化小地图绘制queue
@@ -165,26 +159,7 @@ if __name__ == '__main__':
                             continue
                         if global_my_color == "Blue" and carList.get_car_id(label) > 100 and carList.get_car_id(label) != 107:
                             continue
-                        # 对于高地和哨兵巡逻区的直接赋值特殊处理
 
-                        try:
-                            if roi_selector.is_point_in_hero_highland([xywh_box[0],xywh_box[1]]):
-                                temp_center = np.array([1,1,1])
-                                field_xyz = roi_selector.get_hero_highland_area_field_xyz(global_my_color)
-                                carList_results.append(
-                                    [10000+carList.get_car_id(label), carList.get_car_id(label), xywh_box, 1, temp_center, field_xyz])
-
-                                continue
-                            if roi_selector.is_point_in_sentinel_patrol([xywh_box[0],xywh_box[1]]):
-                                temp_center = np.array([1,1,1])
-                                field_xyz = roi_selector.get_sentinel_patrol_area_field_xyz(global_my_color)
-                                carList_results.append(
-                                    [10000+carList.get_car_id(label), carList.get_car_id(label), xywh_box, 1, temp_center, field_xyz])
-                                print(f"car_id:{carList.get_car_id(label)} is in sentinel patrol area-------------------------")
-                                continue
-                        except Exception as e:
-                            logger.log(f"error in roi_selector:{e}")
-                            print("error in roi_selector----------------------")
 
                         # 获取新xyxy_box , 原来是左上角和右下角，现在想要中心点保持不变，宽高设为原来的一半，再计算一个新的xyxy_box,可封装
                         div_times = 1.01
@@ -219,7 +194,7 @@ if __name__ == '__main__':
                         if distance == 0:
                             continue
 
-                        # 将点转到赛场坐标系下 ， 此处未完成，返回的是[]
+                        # 将点转到赛场坐标系下
                         field_xyz = converter.camera_to_field(center)
                         # 计算赛场坐标系下的距离
                         field_distance = converter.get_distance(field_xyz)

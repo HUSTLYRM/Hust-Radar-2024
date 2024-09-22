@@ -550,11 +550,6 @@ class Messager:
                         self.send_map_info_is_latest[i] = 5
                         break
                 # 控制send_map的通信频率在10Hz
-                # time_interval = time.time() - self.last_send_map_time
-                # print("time_interval:", time_interval)
-                # if is_valid:
-                #     if  time_interval < 0.1: # 如果时间间隔小于0.1s，等待至0.1s
-                #         # print("sleep time:",0.1 - time_interval)
                 #         time.sleep(0.1 - time_interval)
                 # else:
                 #     if time.time() - self.last_send_time_map[car_id] < 0.40:

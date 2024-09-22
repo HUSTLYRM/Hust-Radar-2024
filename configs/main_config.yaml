@@ -1,35 +1,34 @@
 
-
 global:
   my_color: "Blue" # "Blue"
   is_debug: True # False
 
 
-ctrl:
-  MODE: 'video'  # 'camera'
-  DETECT: True
-  RECORDING: False
-  GUI: False
-  ANCHOR: True
+#ctrl:
+#  MODE: 'video'  # 'camera'
+#  DETECT: True
+#  RECORDING: False
+#  GUI: False
+#  ANCHOR: True
+#
+#  SENDING: True
+#  RECEIVING: False
+#
+#  CALIB: False
+#  SAVE_CSV: False
+#  SAVE_IMG: False
+#
+#  CHESSBOARD: False
 
-  SENDING: True
-  RECEIVING: False
-
-  CALIB: False
-  SAVE_CSV: False
-  SAVE_IMG: False
-
-  CHESSBOARD: False
-
-video:
-  bin_video_root: './video'
-  bin_video_left: './video/video1/raw_left.mp4'
-  bin_video_right: './video/video1/raw_right.mp4'
-
-weights:
-  yolov8: 'G:\LangYa\Radar\模型\detect_all\暑假最后\0801_sumup_80.pt'
-
-portx: 'COM7'
+#video:
+#  bin_video_root: './video'
+#  bin_video_left: './video/video1/raw_left.mp4'
+#  bin_video_right: './video/video1/raw_right.mp4'
+#
+#weights:
+#  yolov8: 'G:\LangYa\Radar\模型\detect_all\暑假最后\0801_sumup_80.pt'
+#
+#portx: 'COM7'
 
 car:
   life_span: 20 # 20帧若未刷新则认为不可信
@@ -45,9 +44,6 @@ communication:
   bps: 115200 # 波特率
   timex: 0.01 # 超时时间
 
-others:
-  is_vs_qd: False # 打青岛大学特殊版本
-  is_vs_hg: False # 打合肥工业大学特殊版本
 
 area: # 每一个area是一个列表，元素为点的二元组，表示一个凹多边形 , 从左上角逆时针 , 赛场是对称的，红方左下为原点0，0，蓝方右上为28，15
   hero_times_threshold: 2 # 连续5帧检测到英雄才认为英雄在这个区域

@@ -10,6 +10,7 @@
   0.00118781 -0.000438773    -0.999999
     0.999956   0.00927542   0.00118369
 '''
+# 举例：
 # 外参矩阵T:
 '''
 0.00529624
@@ -44,31 +45,7 @@ from camera_locator.point_picker import PointsPicker
 import cv2
 import yaml
 
-# 从YAML文件中读取字典
-
-# 定义一个坐标系转换的类，包含成员有外参矩阵extrinsic_matrix和相机内参矩阵intrinsic_matrix,以及内参矩阵的内容fx，fy,cx,cy,外参矩阵的内容R,T
-# 方法1为将激光雷达坐标系下的点云转换到相机坐标系下
-# 方法2为将相机坐标系下的点云转换到激光雷达坐标系下
-# 方法3为将相机坐标系下的点云转换到图像坐标系下
-# 方法4为将图像坐标系下的点云转换到相机坐标系下
 class Converter:
-    # 传入data_loader,用data_loader初始化类
-    # def __init__(self, R, T, fx, fy, cx, cy , max_depth = 40):
-    #     self.R = R # 外参矩阵的旋转矩阵，传入的是一个3*3的矩阵
-    #     self.T = T # 外参矩阵的平移矩阵，传入的是一个3*1的矩阵
-    #     self.fx = fx # 相机内参矩阵的fx
-    #     self.fy = fy # 相机内参矩阵的fy
-    #     self.cx = cx # 相机内参矩阵的cx
-    #     self.cy = cy # 相机内参矩阵的cy
-    #     self.max_depth = max_depth # 最大深度值
-    #     # 相机坐标系到图像坐标系的内参矩阵，3*3的矩阵
-    #     self.intrinsic_matrix = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
-    #     # 图像坐标系到相机坐标系的内参矩阵，3*3的矩阵
-    #     self.intrinsic_matrix_inv = np.linalg.inv(self.intrinsic_matrix) # 图像坐标系到相机坐标系的内参矩阵的逆矩阵，自动生成的，得检查一下
-    #     # 激光雷达到相机的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
-    #     self.extrinsic_matrix = np.array([[R[0, 0], R[0, 1], R[0, 2], T[0]], [R[1, 0], R[1, 1], R[1, 2], T[1]], [R[2, 0], R[2, 1], R[2, 2], T[2]], [0, 0, 0, 1]])
-    #     # 相机到激光雷达的外参矩阵，4*4的矩阵，前三列为旋转矩阵，第四列为平移矩阵
-    #     self.extrinsic_matrix_inv = np.linalg.inv(self.extrinsic_matrix) # 相机到激光雷达的外参矩阵的逆矩阵，自动生成的，得检查一下
     def __init__(self, my_color ,data_loader_path = 'parameters.yaml' ):
         # 传入data_loader路径,用data_loader初始化类
         with open(data_loader_path, 'r') as file:
@@ -328,7 +305,6 @@ class Converter:
         u = uvz[:, 0]
         v = uvz[:, 1]
         z = uvz[:, 2]
-        # print("z",z)
         # 创建一个mask，标记落在矩形框中的点云,因为bitwise_and每次只能操作两个数组，所以需要分开操作
         mask1 = cp.bitwise_and(u >= min_u, u <= max_u)
         mask2 = cp.bitwise_and(v >= min_v, v <= max_v)
@@ -367,72 +343,34 @@ class Converter:
         with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
             labels_np = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points,
                                                     print_progress=self.print_cluster_progress))
-        # Early return if labels_np is empty or all -1
+        # 如果没有找到任何簇，返回一个空的点云和中心点
         if len(labels_np) == 0 or np.all(labels_np == -1):
             return np.array([]), np.array([0, 0, 0])
 
-        # Convert NumPy arrays to CuPy arrays for GPU acceleration
+        # 将labels_np转为cupy数组
         labels = cp.asarray(labels_np)
         pcd_points = cp.asarray(pcd.points)
 
-        # Compute cluster sizes
+        # 计算每个簇的大小
         max_label = labels.max().item()
         cluster_sizes = cp.array([cp.sum(labels == i).item() for i in range(max_label + 1)])
 
-        # Early return if cluster_sizes is empty
+        # 判空
         if len(cluster_sizes) == 0:
             return np.array([]), np.array([0, 0, 0])
 
-        # Find the index of the largest cluster
+        # 找到最大簇的索引
         max_cluster_idx = cp.argmax(cluster_sizes)
 
-        # Find all points in the largest cluster
+        # 找到最大簇的所有点
         max_cluster_points = pcd_points[labels == max_cluster_idx]
 
-        # Compute the centroid of the largest cluster
+        # 计算最大簇的中心点
         centroid = cp.mean(max_cluster_points, axis=0)
 
-        # Convert CuPy arrays back to NumPy arrays before returning
+        # 从cupy转为numpy
         return max_cluster_points.get(), centroid.get()
 
-    # def cluster(self,pcd): # 传入的是一个open3d的pcd格式的点云，返回的是一个numpy格式的点云和一个中心点，如果没有找到任何簇，返回一个空的np和中心点
-    #     # TODO:根据点云的距离来判断点云的稀疏程度，然后根据稀疏程度来调整eps和min_points
-    #     # 使用DBSCAN进行聚类
-    #     with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
-    #         labels = np.array(pcd.cluster_dbscan(eps=self.eps, min_points=self.min_points, print_progress=self.print_cluster_progress))
-    #     # print("labels",labels)
-    #     # 如果没有找到任何簇，返回一个空的点云和中心点
-    #
-    #     if len(labels) == 0:
-    #         return np.array([]), np.array([0, 0, 0])
-    #     if labels.argmax() == -1:
-    #         return np.array([]), np.array([0, 0, 0])
-    #
-    #     # 计算每个簇的大小
-    #     max_label = labels.max()
-    #     # print(f"point cloud has {max_label + 1} clusters")
-    #     cluster_sizes = [len(np.where(labels == i)[0]) for i in range(max_label + 1)]
-    #
-    #     # 判空
-    #     if len(cluster_sizes) == 0:
-    #         return np.array([]), np.array([0, 0, 0])
-    #
-    #
-    #
-    #
-    #     # 找到最大簇的索引
-    #     max_cluster_idx = cp.argmax(cp.asarray(cluster_sizes))
-    #
-    #     # 将pcd.points转为cupy数组
-    #     pc = cp.asarray(pcd.points)
-    #
-    #     # 找到最大簇的所有点
-    #     max_cluster_points = pc[cp.asarray(labels) == max_cluster_idx]
-    #
-    #     # 计算最大簇的中心点
-    #     centroid = cp.mean(max_cluster_points, axis=0)
-    #
-    #     return max_cluster_points.get(), centroid.get() # 返回的是一个numpy格式的点云和一个中心点,中心点为[x,y,z]
 
     # 对传入点云进行滤波去除离群点和噪声点
     def remove_outliers(self, pcd):
@@ -560,36 +498,3 @@ class ROISelector:
         else:
             return np.array([5.22,13.20,1])
 
-# converter = Converter()
-# # 读取../pcd_data/points/1224_indoor1.pcd
-# pcd = o3d.io.read_point_cloud('./1224_scene3.pcd')
-# converter.show_pcd_info(pcd) # 看初始的信息
-# # 将激光雷达坐标系下的点云转换到相机坐标系下
-# converter.lidar_to_camera(pcd)
-# # 备份一份pcd,深拷贝,没有copy
-# # pcd_backup = pcd
-# pcd_backup = converter.copy_pcd(pcd)
-#
-# converter.show_pcd_info(pcd) # 看转换后的信息
-# # 可视化点云
-# o3d.visualization.draw_geometries([pcd])
-#
-# #
-# # 获得深度图
-# imgz = converter.generate_depth_map(pcd)
-# # 选择roi
-# box = converter.select_box(imgz)
-# # 打印roi框的坐标
-# print(box)
-# # 获取roi内的点云
-# box_points = converter.get_points_in_box(pcd_backup, box)
-# # 打印点云的数量
-# print(len(box_points))
-# # 可视化点云
-# pcd_box = o3d.geometry.PointCloud()
-# pcd_box.points = o3d.utility.Vector3dVector(box_points)
-# # 打印筛选点的信息
-# converter.show_pcd_info(pcd_box)
-# o3d.visualization.draw_geometries([pcd_box])
-# cv2.imshow('imgz',imgz)
-# cv2.waitKey(0)
