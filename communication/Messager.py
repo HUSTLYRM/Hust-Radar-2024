@@ -228,7 +228,6 @@ class Messager:
                 # self.logger.log(f"find hero at {field_xyz}")
                 if field_xyz == []:
                     self.logger.log(f"field_xyz is empty")
-                    # print("field_xyz is empty")
                     return
 
                 hero_x = field_xyz[0]
@@ -302,7 +301,6 @@ class Messager:
     # 更新哨兵预警信息
     def update_sentinel_alert_info(self , sentinel_alert_info):
         with self.sentinel_lock:
-            # print("update",sentinel_alert_info)
             self.sentinel_alert_info = sentinel_alert_info
 
 
@@ -317,7 +315,6 @@ class Messager:
         sentinel_alert_info = []
         with self.sentinel_lock:
             sentinel_alert_info = self.sentinel_alert_info
-        # print("alert info",sentinel_alert_info)
         if sentinel_alert_info == []:
             return
         carID , distance , quadrant = sentinel_alert_info
@@ -487,9 +484,6 @@ class Messager:
 
             # 发送自主决策信息
             self.send_double_effect_decision()
-            #t
-            self.sender.send_radar_double_effect_info(1)
-            # self.logger.log("send double effect decision")
 
             # 发送哨兵预警信息
             self.send_sentinel_alert_hero()
@@ -528,9 +522,6 @@ class Messager:
             for enemy_car_info in enemy_car_infos:
                 # 提取car_id和field_xyz
                 track_id , car_id , field_xyz , is_valid = enemy_car_info[0] ,enemy_car_info[1] , enemy_car_info[4] , enemy_car_info[6]
-                # if track_id == -1: # 如果track_id为-1，说明没有检测到，不发送
-                #     # print("not init continue")
-                #     continue
                 if field_xyz == []:
                     # self.logger.log("send map field_xyz is empty")
                     continue
@@ -549,19 +540,14 @@ class Messager:
                         self.send_map_infos[i] = [x,y]
                         self.send_map_info_is_latest[i] = 5
                         break
-                # 控制send_map的通信频率在10Hz
-                #         time.sleep(0.1 - time_interval)
-                # else:
-                #     if time.time() - self.last_send_time_map[car_id] < 0.40:
-                #         # print("not valid ,sleep", 0.45 - (time.time() - self.last_send_time_map[car_id]) )
-                #         continue
+
             # 一秒钟记录一次状态
             if self.is_next_second():
                 self.status_logger.log(
                     f"status record:is activating double effect flag{self.is_activating_double_effect} , enemy health info{self.enemy_health_info} , mark progress{self.mark_progress} , have double effect times{self.have_double_effect_times} , time left{self.time_left} , dart target{self.dart_target}")
 
             # 打印打包好后的信息
-            # print("send_map_infos",self.send_map_infos)
+
             # 发送 , 采用skip的方式控制发送频率，不用sleep影响主线程的帧率
             is_skip , self.last_send_map_time = Tools.frame_control_skip(self.last_send_map_time, 10)
             if not is_skip:

@@ -225,31 +225,6 @@ class Sender:
         return tx_buff
 
 
-
-    # 创建敌方车辆小地图信息 , 中间方法
-    # def generate_enemy_location_info(self, carID, x, y):
-    #
-    #     cmd_id = struct.pack('H', 0x0305)
-    #
-    #     data = struct.pack('H', carID) + struct.pack('ff', x, y)
-    #
-    #     data_len = len(data)
-    #     # print("data_len",data_len)
-    #     # print(data_len)
-    #     frame_head = self.get_frame_header(data_len)
-    #     # print("head:",frame_head)
-    #
-    #     tx_buff = frame_head + cmd_id + data
-    #     # print("tx_buff",len(tx_buff))
-    #
-    #     frame_tail = self.get_frame_tail(tx_buff)
-    #     # print("frame_tail",len(frame_tail))
-    #
-    #     tx_buff += frame_tail
-    #     # print("all",len(tx_buff))
-    #     print(len(tx_buff))
-    #     return tx_buff
-
     # 发送Info , 通用方法
     def send_info(self,tx_buff):
         self.ser.write(tx_buff)
@@ -438,41 +413,3 @@ cmd_id 和 frame_tail 的 9 个字节以及数据段头结构的 6 个字节，�
     '''
 
 
-    # def send_enemy_location(self ,carID, x, y):
-    #     tx_buff = self.get_frame_header(10)
-    #
-    #     # tx_buff += b'\x05\x03'  # cmd_id
-    #     u16_num = 0x0305
-    #     tx_buff += struct.pack('H', u16_num)
-    #     tx_buff += struct.pack('H', carID) + struct.pack('ff', x, y)
-    #
-    #     CRC16 = self.get_crc16_check_byte(tx_buff)
-    #     frame_tail = bytes([CRC16 & 0x00ff, (CRC16 & 0xff00) >> 8])
-    #     tx_buff += frame_tail
-    #     self.ser.write(tx_buff)
-    #
-    #     return tx_buff
-
-# if __name__ == '__main__':
-#     main_cfg_path = "../configs/main_config.yaml"
-#     main_cfg = YAML().load(open(main_cfg_path, 'r'))
-#
-#     sender = Sender(main_cfg)
-#
-#     while True:
-#         # 循环列表，x在[10,20]之间变化，每次变化0.1 8819.32mm,5706.98mm
-#         for i in range(0,3000):
-#             sender.send_enemy_location(3,0.1,0.1)
-#             time.sleep(0.1)
-#             if i <=600:
-#                 sender.send_radar_double_effect_info(0)
-#             if i > 600:
-#                 sender.send_radar_double_effect_info(1)
-
-
-
-
-
-        # print()
-        # comm.send_sentinel_alert_info(101, 1, 1)
-        # comm.send_sentinel_field_info([[1, [1, 1]] for _ in range(7)])

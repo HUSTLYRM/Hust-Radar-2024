@@ -173,10 +173,8 @@ class Receiver:
                 self.logger.log(f"time out as {e}")
             # print("finding sof")
             if byte == b'\xA5':
-                # print("find SOF")
                 return True
             # 整体再挂起0.01s,控制在50HZ
-            # print("find sof sleep")
             time.sleep(0.001)
         return False
 
@@ -238,7 +236,6 @@ class Receiver:
             return True , remaining_time
         else:
             # print(f"Unknown cmd_id: {cmd_id}")
-            # 514是0x
 
             return False
     # 解析usb转串口由单片机整理发上来的数据
@@ -269,9 +266,9 @@ class Receiver:
             # 计算帧尾是否正确
             frame_tail_ori = rest_data[-2:]
 
-            # if not self.check_crc16(tx_buff , frame_tail_ori):
-            # print("CRC16 check failed")
-            # continue
+            if not self.check_crc16(tx_buff , frame_tail_ori):
+                print("CRC16 check failed")
+                continue
 
             cmd_id = rest_data[:2]  # 读取命令码
             data = rest_data[2:-2]  # 读取数据
@@ -396,9 +393,9 @@ class Receiver:
             frame_tail_ori = rest_data[-2:]
 
 
-            # if not self.check_crc16(tx_buff , frame_tail_ori):
-                # print("CRC16 check failed")
-                # continue
+            if not self.check_crc16(tx_buff , frame_tail_ori):
+                print("CRC16 check failed")
+                continue
 
             cmd_id = rest_data[:2] # 读取命令码
             data = rest_data[2:-2] # 读取数据
@@ -420,10 +417,6 @@ class Receiver:
             if cmd_id_value == 0x0001: # 比赛进行时间解析
                 # print("parse time")
                 self.process_game_status(data)
-                # if time.time() - self.last_time_main_loop < 0.01:
-                #     # print("receiver sleep")
-                #     time.sleep(0.01 - ( time.time() - self.last_time_main_loop))
-                # self.last_time = time.time()
             elif cmd_id_value == 0x0003:
                 # print("parse health")
                 self.parse_robot_status(data)
@@ -435,13 +428,11 @@ class Receiver:
                 self.parse_double_effect(data)
             elif cmd_id_value == 0x0105: # 飞镖目标
                 # print("parse dart target")
-                # print("parse dart target")
                 self.parse_dart_target(data)
         except Exception as e:
             print(f"Error: {e}")
             self.logger.log(f"Error in switch method: {e}")
 
-        # Add conditions for other cmd_ids
 
     # 飞镖目标解析
     '''
@@ -467,36 +458,15 @@ bit 7-15：保留
         # print(data)
         dart_info_value = struct.unpack('<H', data[1:3])[0]
 
-        # 按位打印data
-        # print("start bit")
-        # for i in range(8):
-        #     print((dart_info_value >> i) & 0x01)
-        # print("stop bit")
 
         # 提取第 5-6 位的值
         dart_target = (dart_info_value >> 5) & 0x03
 
         print(f"Dart target: {dart_target}")
         self.logger.log(f"Dart target: {dart_target}")
-        # hit_target = data[1] & 0x06
-        # print(struct.unpack('H',data[1]))
-        self.shared_dart_target.value = dart_target
-        # print(f"Hit target: {hit_target}")
-        # 如果目标为1，则认为第一次想发送双倍易伤，如果为2，则认为第二次想发送双倍易伤
 
-        # if hit_target == 1:
-        #     self.send_double_count_1 += 1
-        #     if self.send_double_count_1 > 1:
-        #         self.send_double_flag = hit_target
-        #     return
-        # elif hit_target == 2:
-        #     self.send_double_count_2 += 1
-        #     if self.send_double_count_2 > 1:
-        #         self.send_double_flag = hit_target
-        #     return
-        # else:
-        #     self.send_double_count_1 = 0
-        #     self.send_double_count_2 = 0
+        self.shared_dart_target.value = dart_target
+
 
 
     # 比赛进行时间时间解析
@@ -552,14 +522,14 @@ bit 7-15：保留
 
         :param data:
         typedef _packed struct
-{
-  uint8_t mark_hero_progress;
-  uint8_t mark_engineer_progress;
-  uint8_t mark_standard_3_progress;
-  uint8_t mark_standard_4_progress;
-  uint8_t mark_standard_5_progress;
-  uint8_t mark_sentry_progress;
-}radar_mark_data_t;
+        {
+          uint8_t mark_hero_progress;
+          uint8_t mark_engineer_progress;
+          uint8_t mark_standard_3_progress;
+          uint8_t mark_standard_4_progress;
+          uint8_t mark_standard_5_progress;
+          uint8_t mark_sentry_progress;
+        }radar_mark_data_t;
         :return: 一个list，包含了所有的标记进度，如[0,0,0,100,100,100]
         '''
         mark_process = [data[i] for i in range(6)]
@@ -650,11 +620,6 @@ def parse_frame(self,serial_port):
     header = serial_port.read(4)
     # print(header)
     data_length, seq, crc8 = struct.unpack('<HBB', header)
-    # print(data_length)
-    # print(seq)
-    # print(crc8)
-    # print(seq)
-    # print(crc8)
 
     # 根据data_length读取data和frame_tail
     data_and_tail = serial_port.read(2+data_length + 2)  # 包括命令码和CRC16
@@ -670,32 +635,9 @@ def parse_frame(self,serial_port):
         print("carId:",carid,"x:",x,"y:",y)
 
 
-    # print(cmd_id)
-
-
-
-
     return True
 
 
-# 打开串口
-
-# receiver = Receiver()
-# # 读取串口数据
-# while True:
-#     receiver.read_remaining_time()
-#     # time.sleep(0.1)
-
-# 测试
-
-# main_config_path = "../configs/main_config.yaml"
-# main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
-# receiver = Receiver(main_cfg)
-# receiver.start()
-# while True:
-#     # print('1')
-#     print(receiver.get_time_left())
-#     time.sleep(0.1)
 
 
 

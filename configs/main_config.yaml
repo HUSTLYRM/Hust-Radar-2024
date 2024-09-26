@@ -4,32 +4,6 @@ global:
   is_debug: True # False
 
 
-#ctrl:
-#  MODE: 'video'  # 'camera'
-#  DETECT: True
-#  RECORDING: False
-#  GUI: False
-#  ANCHOR: True
-#
-#  SENDING: True
-#  RECEIVING: False
-#
-#  CALIB: False
-#  SAVE_CSV: False
-#  SAVE_IMG: False
-#
-#  CHESSBOARD: False
-
-#video:
-#  bin_video_root: './video'
-#  bin_video_left: './video/video1/raw_left.mp4'
-#  bin_video_right: './video/video1/raw_right.mp4'
-#
-#weights:
-#  yolov8: 'G:\LangYa\Radar\模型\detect_all\暑假最后\0801_sumup_80.pt'
-#
-#portx: 'COM7'
-
 car:
   life_span: 20 # 20帧若未刷新则认为不可信
 

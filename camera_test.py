@@ -5,10 +5,9 @@ import time
 from collections import deque
 from ruamel.yaml import YAML
 
-# 创建一个长度为N的队列
 
 mode = "camera" # "video" or "camera"
-round = 11 #训练赛第几轮
+round = 11
 
 if __name__ == '__main__':
     video_path = "data/right.mp4"

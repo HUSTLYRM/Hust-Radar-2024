@@ -196,15 +196,7 @@ class CarList:
 
 
 
-# main_cfg_path = "../configs/main_config.yaml"
-#
-# main_cfg = YAML().load(open(main_cfg_path, encoding='Utf-8', mode='r'))
-# cars = CarList(main_cfg)
-# results = cars.get_center_info()
-# sentinel_xy , enemy_infos = results
-# print(sentinel_xy)
-# for enemy_info in enemy_infos:
-#     print(enemy_info)
+
 
 
 
