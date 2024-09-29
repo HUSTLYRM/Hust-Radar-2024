@@ -39,13 +39,15 @@
 </h4>
 <img src="./asset/radar_highlight4.gif" style="width: 1200px ">
 
+<div align="left">
 国赛效果展示视频：
-[【RM/雷达】全场高亮与哨兵联动罢了 | B 站]( https://www.bilibili.com/video/BV1TMeGedETC/?share_source=copy_web&vd_source=6f2ebe510c8892396ae0b07a82be0d23)
+
+[华中科技大学狼牙战队雷达](https://www.bilibili.com/video/BV1TMeGedETC/?share_source=copy_web&vd_source=6f2ebe510c8892396ae0b07a82be0d23)
 
 目标检测效果完整展示视频：
-[华中科技大学狼牙战队雷达目标检测效果展示]( 【[RM|雷达|开源效果展示] 华中科技大学狼牙战队雷达目标检测效果展示】 https://www.bilibili.com/video/BV13jHYeoE5z/?share_source=copy_web&vd_source=6f2ebe510c8892396ae0b07a82be0d23)
+[华中科技大学狼牙战队雷达目标检测效果展示](https://www.bilibili.com/video/BV13jHYeoE5z/?share_source=copy_web&vd_source=6f2ebe510c8892396ae0b07a82be0d23)
 
-</div>
+
 
 ## 功能简介 🔎
 
