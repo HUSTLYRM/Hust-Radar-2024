@@ -19,11 +19,11 @@ mode = "video" # "video" or "camera" , 如果纯视频模式选用video,需要�
 save_video = True # 是否保存视频
 
 if __name__ == '__main__':
-    video_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/data/华科vs哈工大round1_原视频.avi"
-    detector_config_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/detector_config.yaml"
-    binocular_camera_cfg_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/bin_cam_config.yaml"
-    main_config_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/main_config.yaml"
-    converter_config_path = "/home/nvidia/RadarWorkspace/code/Radar_Develop/configs/converter_config.yaml"
+    video_path = "./data/video.avi" # 请改为/path/to/video.avi
+    detector_config_path = "./configs/detector_config.yaml"
+    binocular_camera_cfg_path = "./configs/bin_cam_config.yaml"
+    main_config_path = "./configs/main_config.yaml"
+    converter_config_path = "./configs/converter_config.yaml"
     main_cfg = YAML().load(open(main_config_path, encoding='Utf-8', mode='r'))
     # 全局变量
     global_my_color = main_cfg['global']['my_color']
